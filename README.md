@@ -12,9 +12,9 @@
 bash <(curl -fsSL https://raw.githubusercontent.com/svendou/xray-console-ui/main/scripts/install.sh) https://github.com/svendou/xray-console-ui.git
 ```
 
-安装器会检查 Linux、Node.js 22.12+、npm 和 git，拉取或更新项目，执行 `npm ci` 和 `npm run build`，创建管理密码，并启动 systemd 或 OpenRC 服务。首次运行时会提示输入面板密码。
+安装器会自动识别并安装 Node.js 22.12+、npm、git 和基础证书。支持 `apt-get`、`dnf`、`yum`、`apk`、`pacman`、`zypper`，然后拉取或更新项目，执行 `npm ci` 和 `npm run build`，创建管理密码，并启动 systemd 或 OpenRC 服务。首次运行时会提示输入面板密码。
 
-面板后台和代理脚本需要运行在同一台 Linux 服务器，并以 root 权限管理服务。部署前准备 Node.js 22.12+ 或 Node.js 24 LTS，以及 SSH 访问权限。
+服务器需要运行 Linux、允许 root 操作并能够访问软件包源和 GitHub。无法识别包管理器的发行版需要手动安装依赖后再运行安装器。
 
 ### 安装开机服务
 

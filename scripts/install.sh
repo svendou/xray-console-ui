@@ -13,13 +13,79 @@ case "$REPO_URL" in
   *) echo '仓库地址必须使用 http:// 或 https://。' >&2; exit 1 ;;
 esac
 
-NODE_BIN=$(command -v node) || { echo '请先安装 Node.js 22.12+ / 24 LTS。' >&2; exit 1; }
-"$NODE_BIN" -e 'const [major, minor] = process.versions.node.split(".").map(Number); if (major < 22 || (major === 22 && minor < 12)) process.exit(1)' || {
-  echo 'Node.js 版本过低，需要 22.12+ 或 24 LTS。' >&2
+PACKAGE_MANAGER=
+NODE_BIN=
+
+die() {
+  echo "$1" >&2
   exit 1
 }
-command -v git >/dev/null 2>&1 || { echo '请先安装 git。' >&2; exit 1; }
-command -v npm >/dev/null 2>&1 || { echo '请先安装 npm。' >&2; exit 1; }
+
+detect_package_manager() {
+  [ -n "$PACKAGE_MANAGER" ] && return 0
+  if command -v apt-get >/dev/null 2>&1; then PACKAGE_MANAGER=apt
+  elif command -v dnf >/dev/null 2>&1; then PACKAGE_MANAGER=dnf
+  elif command -v yum >/dev/null 2>&1; then PACKAGE_MANAGER=yum
+  elif command -v apk >/dev/null 2>&1; then PACKAGE_MANAGER=apk
+  elif command -v pacman >/dev/null 2>&1; then PACKAGE_MANAGER=pacman
+  elif command -v zypper >/dev/null 2>&1; then PACKAGE_MANAGER=zypper
+  else die '无法识别 Linux 包管理器，请手动安装 Node.js 22.12+、npm 和 git。'
+  fi
+}
+
+install_base_dependencies() {
+  if command -v git >/dev/null 2>&1 && command -v curl >/dev/null 2>&1; then return 0; fi
+  detect_package_manager
+  case "$PACKAGE_MANAGER" in
+    apt)
+      apt-get update
+      DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl git
+      ;;
+    dnf) dnf install -y ca-certificates curl git ;;
+    yum) yum install -y ca-certificates curl git ;;
+    apk) apk add --no-cache ca-certificates curl git ;;
+    pacman) pacman -Sy --noconfirm ca-certificates curl git ;;
+    zypper) zypper --non-interactive install --no-recommends ca-certificates curl git ;;
+  esac
+}
+
+node_version_ok() {
+  NODE_BIN=$(command -v node 2>/dev/null) || return 1
+  "$NODE_BIN" -e 'const [major, minor] = process.versions.node.split(".").map(Number); if (major < 22 || (major === 22 && minor < 12)) process.exit(1)' >/dev/null 2>&1
+}
+
+node_ready() {
+  node_version_ok && command -v npm >/dev/null 2>&1
+}
+
+install_node() {
+  detect_package_manager
+  case "$PACKAGE_MANAGER" in
+    apt)
+      apt-get update
+      DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl
+      curl -fsSL https://deb.nodesource.com/setup_22.x | sh -
+      DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+      ;;
+    dnf|yum)
+      curl -fsSL https://rpm.nodesource.com/setup_22.x | sh -
+      if [ "$PACKAGE_MANAGER" = dnf ]; then dnf install -y nodejs
+      else yum install -y nodejs
+      fi
+      ;;
+    apk) apk add --no-cache nodejs npm ;;
+    pacman) pacman -Sy --noconfirm nodejs npm ;;
+    zypper) zypper --non-interactive install --no-recommends nodejs npm ;;
+  esac
+}
+
+install_base_dependencies
+if ! node_ready; then
+  echo '正在安装或升级 Node.js 22.12+ 和 npm…'
+  install_node
+fi
+node_ready || die '自动安装后仍未找到 Node.js 22.12+ 和 npm，请手动安装后重试。'
+command -v git >/dev/null 2>&1 || die '自动安装后仍未找到 git，请手动安装后重试。'
 
 case "$APP_DIR" in
   /*) ;;
