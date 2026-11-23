@@ -6,35 +6,15 @@
 
 ### 一键安装
 
-你提供 Git 仓库地址后，最终命令可以直接写成下面的形式：
+在目标 Linux 服务器上以 root 执行下面的命令：
 
 ```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/scripts/install.sh) https://github.com/OWNER/REPO.git
+bash <(curl -fsSL https://raw.githubusercontent.com/svendou/xray-console-ui/main/scripts/install.sh) https://github.com/svendou/xray-console-ui.git
 ```
 
 安装器会检查 Linux、Node.js 22.12+、npm 和 git，拉取或更新项目，执行 `npm ci` 和 `npm run build`，创建管理密码，并启动 systemd 或 OpenRC 服务。首次运行时会提示输入面板密码。
 
-当前仓库地址还未提供，`OWNER/REPO` 是占位符。收到实际 Git 地址后，把上面的命令替换成可直接复制的最终版本。
-
 面板后台和代理脚本需要运行在同一台 Linux 服务器，并以 root 权限管理服务。部署前准备 Node.js 22.12+ 或 Node.js 24 LTS，以及 SSH 访问权限。
-
-### 本地构建
-
-在 Windows 或 Linux 的项目目录执行：
-
-```powershell
-cd 'E:\新建文件夹\xray-console-ui'
-npm install
-npm run build
-```
-
-### 上传项目
-
-上传 `dist`、`server`、`scripts`、`public`、`package.json` 和 `README.md` 到服务器。生产后台使用 Node.js 标准库，不需要上传 `node_modules`，也不需要在服务器运行 `npm install`。
-
-```powershell
-scp -r dist server scripts public package.json README.md root@YOUR_SERVER:/opt/xray-console-ui
-```
 
 ### 安装开机服务
 
@@ -116,7 +96,7 @@ location / {
 
 真实环境中不要把管理面板接到代理订阅使用的临时 Cloudflare 隧道上。
 
-## 本地查看
+## 本地演示（可选）
 
 需要 Node.js 22.12+（推荐 24 LTS）。
 
@@ -128,11 +108,7 @@ npm run dev
 
 打开 http://127.0.0.1:5173 。`npm run dev` 同时启动前端和**演示后台**，登录账号是 `admin`，密码是 `000000`。演示包含完整的模拟安装、任务输出、服务启停和二维码；数据明确标记为模拟，不会在 Windows 上执行 Linux 安装命令。演示地址和密钥不能用于真实连接。
 
-```sh
-npm run build  # Vue 类型检查和生产构建
-npm test      # 命令校验、任务持久化、并发保护、登录、来源检查与 SSE 测试
-npm run demo  # 直接在 127.0.0.1:8787 查看已构建的演示版
-```
+自动化测试执行 `npm test`。
 
 ## 已实现
 
