@@ -93,7 +93,7 @@ if [ -z "$RELEASE_URL" ]; then
     RELEASE_URL="$RELEASE_BASE_URL/$VERSION/xray-console-ui.tar.gz"
   fi
 fi
-CHECKSUM_URL="$RELEASE_URL.sha256"
+CHECKSUM_URL=${XRAY_CONSOLE_CHECKSUM_URL:-${RELEASE_URL%.tar.gz}.sha256}
 
 TEMP_DIR=$(mktemp -d)
 cleanup() { rm -rf "$TEMP_DIR"; }

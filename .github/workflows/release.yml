@@ -37,6 +37,7 @@ jobs:
           cp -a dist server scripts package.json README.md "$stage/xray-console-ui/"
           tar -C "$stage" -czf xray-console-ui.tar.gz xray-console-ui
           sha256sum xray-console-ui.tar.gz > xray-console-ui.sha256
+          cp xray-console-ui.sha256 xray-console-ui.tar.gz.sha256
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
@@ -45,3 +46,4 @@ jobs:
           files: |
             xray-console-ui.tar.gz
             xray-console-ui.sha256
+            xray-console-ui.tar.gz.sha256
