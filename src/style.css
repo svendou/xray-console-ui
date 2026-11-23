@@ -176,8 +176,6 @@ nav { display: grid; gap: 5px; }
 .carrier-mark.mobile { background: #f59e0b; }
 .carrier-mark.unicom { background: #34d399; }
 .carrier-mark.telecom { background: #60a5fa; }
-.node-stat-action { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin-top: auto; }
-.node-stat-action small { color: var(--muted); font: 11px var(--mono); }
 .node-stats-foot { display: flex; gap: 8px; align-items: flex-start; padding: 14px 0 0; color: var(--muted); font-size: 11px; line-height: 1.8; }
 .node-stats-foot svg { color: var(--amber); margin-top: 2px; }
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
@@ -544,7 +542,6 @@ dialog::backdrop { background: var(--scrim); }
   .node-stat-row { grid-template-columns: minmax(0, 1.8fr) .75fr 76px; gap: 10px; padding: 15px 18px; }
   .node-stat-row > .node-stat-value { grid-column: 2; grid-row: 1; }
   .node-stat-row > .node-speed-values { grid-column: 1; grid-row: 2; padding-left: 46px; grid-template-columns: 1fr 1fr; gap: 9px; }
-  .node-stat-row > .node-stat-action { grid-column: 3; grid-row: 1 / span 2; }
   .node-stat-row > .status-badge { grid-column: 2; grid-row: 2; justify-self: start; }
   .node-stats-foot { padding: 11px 18px; }
   .service-overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -624,7 +621,6 @@ dialog::backdrop { background: var(--scrim); }
   .node-stat-row > .node-stat-value { grid-column: 2; grid-row: 1; }
   .node-stat-row > .status-badge { grid-column: 1; grid-row: 2; justify-self: start; margin-left: 46px; }
   .node-stat-row > .node-speed-values { grid-column: 1 / -1; grid-row: 3; padding-left: 46px; grid-template-columns: 1fr 1fr; }
-  .node-stat-row > .node-stat-action { grid-column: 2; grid-row: 2; }
   .node-stat-identity strong { font-size: 14px; }
   .node-stat-identity small { max-width: 190px; font-size: 11px; }
   .node-stats-foot { font-size: 10px; }
