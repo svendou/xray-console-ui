@@ -1290,8 +1290,10 @@ def clash_payload(cfg, domain):
         for index, (key, value) in enumerate(proxy.items()):
             lines.append(("  - " if index == 0 else "    ") + key + ": " +
                          json.dumps(value, ensure_ascii=False))
+    proxy_names = [p["name"] for p in proxies]
+    preferred = [name for name in proxy_names if name.endswith("-REALITY")] + [name for name in proxy_names if not name.endswith("-REALITY")]
     lines.extend(["proxy-groups:", "  - name: PROXY", "    type: select",
-                  "    proxies: " + json.dumps([p["name"] for p in proxies] + ["DIRECT"], ensure_ascii=False),
+                  "    proxies: " + json.dumps(preferred + ["DIRECT"], ensure_ascii=False),
                   "rules:", "  - MATCH,PROXY", ""])
     return "\n".join(lines).encode("utf-8")
 

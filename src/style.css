@@ -758,6 +758,11 @@ dialog::backdrop { background: var(--scrim); }
 .linux-proxy-intro h3 { font-size: 15px; }
 .linux-proxy-intro p { max-width: 700px; margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.7; }
 .linux-guide-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.linux-proxy-selection { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; padding: 11px 13px; background: var(--blue-dim); border: 1px solid var(--blue-border); border-radius: 8px; }
+.linux-proxy-selection > div { display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
+.linux-proxy-selection span { color: var(--muted); font-size: 10px; }
+.linux-proxy-selection strong { color: var(--blue-light); font: 12px var(--mono); }
+.linux-proxy-selection p { color: var(--text-secondary); font-size: 10px; line-height: 1.6; }
 .linux-guide-step { min-width: 0; display: flex; gap: 11px; padding: 15px; background: var(--surface-2); border: 1px solid var(--border-subtle); border-radius: 10px; }
 .linux-step-index { display: grid; place-items: center; width: 22px; height: 22px; flex: 0 0 22px; color: var(--blue-light); background: var(--blue-dim); border-radius: 6px; font: 12px var(--mono); }
 .linux-guide-step h4 { font-size: 12px; font-weight: 600; }
@@ -775,4 +780,7 @@ dialog::backdrop { background: var(--scrim); }
   .linux-proxy-guide { padding: 0 18px 18px; }
   .linux-proxy-intro { display: block; }
   .linux-proxy-intro .private-label { display: inline-flex; margin-top: 12px; }
+  .linux-proxy-selection { display: block; }
+  .linux-proxy-selection > div { justify-content: space-between; }
+  .linux-proxy-selection p { margin-top: 7px; }
 }

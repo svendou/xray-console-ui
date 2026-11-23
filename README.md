@@ -12,7 +12,7 @@
 bash <(curl -fsSL https://raw.githubusercontent.com/svendou/xray-console-ui/main/scripts/install.sh)
 ```
 
-安装器会自动识别并安装 Node.js 22.12+ 和基础工具，下载 GitHub Release 的最新预构建包，校验后解压并启动 systemd 或 OpenRC 服务。服务器不会执行 `npm ci` 或前端构建。首次运行时由服务器随机生成面板登录密码。
+安装器会自动识别并安装 Node.js 22.12+ 和基础工具，下载 GitHub Release 的最新预构建包，校验后解压并启动 systemd 或 OpenRC 服务。服务器不会执行 `npm ci` 或前端构建。每次安装器执行安装或更新时，服务器都会重新生成随机面板登录密码。
 
 服务器需要运行 Linux、允许 root 操作并能够访问软件包源和 GitHub。无法识别包管理器的发行版需要手动安装依赖后再运行安装器。
 
@@ -34,7 +34,7 @@ cd /opt/xray-console-ui
 sh scripts/setup-panel.sh
 ```
 
-脚本会检查 Linux 和 Node.js 版本，首次运行时由服务器生成随机管理密码，并安装 systemd 或 OpenRC 服务。密码由面板读取并同时保存到 `/etc/xray-console-ui/password` 和 `/root/xray-console-ui-password`，两个文件权限均为 600。默认监听 `0.0.0.0:8787`，可以让服务器面板把公网端口映射到内部 `8787`。
+脚本会检查 Linux 和 Node.js 版本，每次安装或更新时由服务器生成新的随机管理密码，并安装 systemd 或 OpenRC 服务。密码由面板读取并同时保存到 `/etc/xray-console-ui/password` 和 `/root/xray-console-ui-password`，两个文件权限均为 600。更新后旧密码立即失效。默认监听 `0.0.0.0:8787`，可以让服务器面板把公网端口映射到内部 `8787`。
 
 默认启用端口映射直连 HTTP。公网长期使用时请配置 HTTPS 反向代理，并关闭 `PANEL_ALLOW_INSECURE_HTTP`。
 

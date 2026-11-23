@@ -92,6 +92,30 @@ export function duration(seconds: number) {
 }
 export const time = (date: string) => new Date(date).toLocaleTimeString('zh-CN', { hour12: false })
 export async function copy(value: string) {
-  try { await navigator.clipboard.writeText(value); toast('已复制到剪贴板。') }
-  catch { toast('复制失败，请选中文本手动复制。') }
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value)
+      toast('已复制到剪贴板。')
+      return
+    }
+    throw new Error('Clipboard API unavailable')
+  } catch {
+    try {
+      const textarea = document.createElement('textarea')
+      textarea.value = value
+      textarea.setAttribute('readonly', '')
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      textarea.setSelectionRange(0, value.length)
+      const copied = document.execCommand('copy')
+      textarea.remove()
+      if (copied) {
+        toast('已复制到剪贴板。')
+        return
+      }
+    } catch { /* keep the manual-copy message below */ }
+    toast('复制失败，请选中文本手动复制。')
+  }
 }

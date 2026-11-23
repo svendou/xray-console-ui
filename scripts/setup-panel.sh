@@ -14,7 +14,7 @@ else echo '仅支持 systemd / OpenRC。' >&2; exit 1; fi
 mkdir -p /etc/xray-console-ui
 chmod 700 /etc/xray-console-ui
 PASSWORD_EXPORT_FILE=/root/xray-console-ui-password
-if [ ! -f /etc/xray-console-ui/password ]; then
+if [ "${PANEL_ROTATE_PASSWORD:-0}" = 1 ] || [ ! -f /etc/xray-console-ui/password ]; then
   if command -v openssl >/dev/null 2>&1; then
     PANEL_SECRET=$(openssl rand -hex 18)
   else
@@ -24,7 +24,7 @@ if [ ! -f /etc/xray-console-ui/password ]; then
   printf '%s' "$PANEL_SECRET" > /etc/xray-console-ui/password
   unset PANEL_SECRET
 fi
-if [ ! -f "$PASSWORD_EXPORT_FILE" ]; then
+if [ "${PANEL_ROTATE_PASSWORD:-0}" = 1 ] || [ ! -f "$PASSWORD_EXPORT_FILE" ]; then
   cp /etc/xray-console-ui/password "$PASSWORD_EXPORT_FILE"
 fi
 chmod 600 /etc/xray-console-ui/password "$PASSWORD_EXPORT_FILE"

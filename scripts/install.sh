@@ -211,5 +211,5 @@ cp -a "$PACKAGE_DIR/." "$APP_DIR/"
 printf '%s\n' "$VERSION" > "$APP_DIR/.xray-console-ui-release"
 chmod 600 "$APP_DIR/.xray-console-ui-release"
 
-sh "$APP_DIR/scripts/setup-panel.sh"
+PANEL_ROTATE_PASSWORD=1 sh "$APP_DIR/scripts/setup-panel.sh"
 printf '%s\n' 'Xray Console UI 面板已安装并启动。' '监听 0.0.0.0:8787，服务器面板可将公网端口映射到内部 8787。' '之后在面板中点击“安装 / 更新”部署代理。'
