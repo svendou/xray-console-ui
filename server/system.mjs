@@ -246,7 +246,12 @@ async function executePinnedBbrScript(input, label, append) {
     clearTimeout(timeout)
   }
   if (!response.ok) throw new Error(`BBR V3 安装脚本下载失败（HTTP ${response.status}）。`)
-  const source = await response.text()
+  let source = await response.text()
+  if (input.startsWith('10\n')) {
+    const marker = 'if run_speedtest_measurement; then'
+    if (!source.includes(marker)) throw new Error('BBR V3 脚本缺少非交互测速入口。')
+    source = source.replace(marker, 'if [[ \"${BBRV3_PANEL_MODE:-0}\" == \"1\" ]]; then SPEEDTEST_UPLOAD=1000; SPEEDTEST_DOWNLOAD=1000; elif run_speedtest_measurement; then')
+  }
   if (!source.includes('select_kernel_profile') || !source.includes('install_latest_version')) throw new Error('下载到的 BBR V3 脚本版本不受支持。')
   const directory = mkdtempSync(join(tmpdir(), 'xray-bbr-v3-'))
   const scriptPath = join(directory, 'install.sh')
@@ -255,7 +260,7 @@ async function executePinnedBbrScript(input, label, append) {
     return await new Promise(resolve => {
       const child = spawn('bash', [scriptPath], {
         shell: false,
-        env: { ...process.env, BBRV3_SKIP_QUICK_COMMAND: '1', TERM: 'xterm' },
+        env: { ...process.env, BBRV3_SKIP_QUICK_COMMAND: '1', BBRV3_PANEL_MODE: input.startsWith('10\n') ? '1' : '0', TERM: 'xterm' },
         stdio: ['pipe', 'pipe', 'pipe'],
       })
       child.stdin.end(input)

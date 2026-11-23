@@ -62,11 +62,12 @@ show_menu() {
   echo '3) 停止面板'
   echo '4) 查看部署脚本'
   echo '5) 查看面板状态'
+  echo '6) 卸载面板'
   echo '0) 退出'
   printf '请选择：'
   if [ -t 0 ]; then read -r choice
   elif [ -r /dev/tty ]; then read -r choice < /dev/tty
-  else die '当前终端不支持交互菜单，请传入 install、update、stop、script 或 status。'
+  else die '当前终端不支持交互菜单，请传入 install、update、stop、script、status 或 uninstall。'
   fi
   case "$choice" in
     1) ACTION=install ;;
@@ -74,6 +75,7 @@ show_menu() {
     3) ACTION=stop ;;
     4) ACTION=script ;;
     5) ACTION=status ;;
+    6) ACTION=uninstall ;;
     0) exit 0 ;;
     *) die '无效选择。' ;;
   esac
@@ -81,8 +83,8 @@ show_menu() {
 
 [ "$ACTION" = menu ] && show_menu
 case "$ACTION" in
-  install|update|stop|script|status) ;;
-  *) die '用法：install.sh [install|update|stop|script|status]。' ;;
+  install|update|stop|script|status|uninstall) ;;
+  *) die '用法：install.sh [install|update|stop|script|status|uninstall]。' ;;
 esac
 
 if [ "$ACTION" = stop ]; then
@@ -96,6 +98,24 @@ if [ "$ACTION" = status ]; then
 fi
 if [ "$ACTION" = script ]; then
   show_deploy_script
+  exit 0
+fi
+if [ "$ACTION" = uninstall ]; then
+  panel_exists || die "$APP_DIR 尚未安装。"
+  printf '确认卸载 Xray Console UI 面板及其配置？输入 yes 继续：'
+  read -r confirmation
+  [ "$confirmation" = yes ] || { echo '已取消卸载。'; exit 0; }
+  service_action stop >/dev/null 2>&1 || true
+  if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
+    systemctl disable xray-console-ui >/dev/null 2>&1 || true
+    rm -f /etc/systemd/system/xray-console-ui.service
+    systemctl daemon-reload
+  elif command -v rc-service >/dev/null 2>&1; then
+    rc-update del xray-console-ui default >/dev/null 2>&1 || true
+    rm -f /etc/init.d/xray-console-ui
+  fi
+  rm -rf "$APP_DIR" /etc/xray-console-ui /root/xray-console-ui-password
+  echo 'Xray Console UI 面板已卸载。代理节点组件和手工部署的服务不受影响。'
   exit 0
 fi
 if [ "$ACTION" = install ] && panel_exists; then
