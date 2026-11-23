@@ -170,8 +170,8 @@ node_version_ok || die '自动安装后仍未找到 Node.js 22.12+，请手动�
 
 if [ -z "$RELEASE_URL" ]; then
   if [ "$VERSION" = latest ]; then
-    command -v awk >/dev/null 2>&1 || die '获取最新版本需要 awk。'
-    VERSION=$(curl -fsSL -H 'Accept: application/vnd.github+json' -H 'User-Agent: xray-console-ui-installer' "$LATEST_RELEASE_URL" | awk -F '"' '/"tag_name"[[:space:]]*:/ { print $4; exit }') || die '无法获取 GitHub 最新 Release。'
+    latest_json=$(curl -fsSL -H 'Accept: application/vnd.github+json' -H 'User-Agent: xray-console-ui-installer' "$LATEST_RELEASE_URL") || die '无法获取 GitHub 最新 Release。'
+    VERSION=$(printf '%s' "$latest_json" | "$NODE_BIN" -e 'let s=""; process.stdin.on("data", chunk => s += chunk).on("end", () => process.stdout.write(JSON.parse(s).tag_name || ""))') || die '无法解析 GitHub 最新 Release。'
     case "$VERSION" in
       v[0-9]*.[0-9]*.[0-9]*) ;;
       *) die 'GitHub 最新 Release 标签无效。' ;;
