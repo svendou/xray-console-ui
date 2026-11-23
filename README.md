@@ -9,12 +9,19 @@
 在目标 Linux 服务器上以 root 执行下面的命令：
 
 ```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/svendou/xray-console-ui/main/scripts/install.sh) https://github.com/svendou/xray-console-ui.git
+bash <(curl -fsSL https://raw.githubusercontent.com/svendou/xray-console-ui/main/scripts/install.sh)
 ```
 
-安装器会自动识别并安装 Node.js 22.12+、npm、git 和基础证书。支持 `apt-get`、`dnf`、`yum`、`apk`、`pacman`、`zypper`，然后拉取或更新项目，执行 `npm ci` 和 `npm run build`，创建管理密码，并启动 systemd 或 OpenRC 服务。首次运行时会提示输入面板密码。
+安装器会自动识别并安装 Node.js 22.12+ 和基础工具，下载 GitHub Release 的预构建包，校验后解压并启动 systemd 或 OpenRC 服务。服务器不会执行 `npm ci` 或前端构建。首次运行时会提示输入面板密码。
 
 服务器需要运行 Linux、允许 root 操作并能够访问软件包源和 GitHub。无法识别包管理器的发行版需要手动安装依赖后再运行安装器。
+
+维护者发布新版本时，创建并推送 `v` 开头的 Git 标签。GitHub Actions 会在构建环境完成依赖安装、前端构建和预构建包发布：
+
+```sh
+git tag v1.0.1
+git push origin v1.0.1
+```
 
 ### 安装开机服务
 
