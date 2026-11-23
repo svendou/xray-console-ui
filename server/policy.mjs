@@ -5,7 +5,7 @@ export const actions = {
   'restart-tunnel': '重建 Cloudflare 隧道', 'set-entry': '修改 CF 入口', export: '更新节点与订阅',
   mtproto: '安装 / 更新 Telegram 代理', 'mtproto-restart': '重启 Telegram 代理',
   'mtproto-protect': '启用 TG 连接防护', 'mtproto-unprotect': '移除 TG 连接防护', 'time-sync': '配置自动校时',
-  'set-congestion': '设置内核拥塞控制', 'set-qdisc': '设置队列调度',
+  'xray-restart': '单独重启 Xray', 'hy2-restart': '单独重启 Hysteria2', 'set-congestion': '设置内核拥塞控制', 'set-qdisc': '设置队列调度',
   'bbr-profile': '安装 BBR V3 内核', 'bbr-menu': '执行 BBR 脚本菜单', 'bbr-smart': '配置 BBR V3 智能优化', 'update-xray': '更新 Xray', 'update-hy2': '更新 Hysteria2', 'update-cloudflare': '更新 Cloudflared', uninstall: '卸载全部组件',
 }
 export function validHost(value) {

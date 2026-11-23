@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve, extname, sep } from 'node:path'
 import os from 'node:os'
 import { Jobs } from './jobs.mjs'
-import { defaults, readSettings, detectPublicAddress, realServices, servicesFor, checkServiceUpdates, cpuTimes, executeScript, executeBbrV3, executeBbrMenu, executeBbrSmart, nodeExports, serviceLogs, nodeStats, nodeDefinitions, kernelCongestion, setKernelCongestion, setKernelQdisc } from './system.mjs'
+import { defaults, readSettings, detectPublicAddress, realServices, servicesFor, checkServiceUpdates, cpuTimes, executeScript, executeBbrV3, executeBbrMenu, executeBbrSmart, nodeExports, serviceLogs, nodeStats, nodeDefinitions, kernelCongestion, setKernelCongestion, setKernelQdisc, restartManagedService } from './system.mjs'
 import { TrafficMonitor } from './traffic.mjs'
 
 const carrierProbes = [
@@ -114,6 +114,7 @@ export function createPanel({ demo = false, username = 'admin', password = '', d
       if (demo || execute) return scriptExecute(args, append)
       return executeBbrSmart(args[2], Number(args[4]), append)
     }
+    if (args[0] === 'xray-restart' || args[0] === 'hy2-restart') return restartManagedService(args[0].replace('-restart', ''), append)
     if (args[0] === 'set-congestion') {
       if (demo) { append(`[演示模式] 已模拟切换 TCP 拥塞控制：${args[2]}`); demoCongestion = args[2]; return 0 }
       return setKernelCongestion(args[2], append)
@@ -157,7 +158,7 @@ export function createPanel({ demo = false, username = 'admin', password = '', d
       const memory = demo ? 38 : Math.round((1 - os.freemem() / os.totalmem()) * 100)
       if (demo && !history.length) history = Array.from({ length: 24 }, (_, i) => ({ time: new Date(Date.now() - (24 - i) * 3000).toISOString(), cpu: Math.round(12 + 7 * Math.sin(i / 2)), memory: 37 + Math.round(Math.sin(i / 3)) }))
       history = [...history, { time: now, cpu, memory }].slice(-60)
-      if (!kernelStatus) kernelStatus = demo ? { current: demoCongestion, allowed: ['cubic', 'bbr', 'bbr2'], qdisc: demoQdisc, bbr: true, qdiscSupported: true, bbrV3Supported: true, distro: 'demo', source: 'demo' } : await kernelCongestion()
+      if (!kernelStatus) kernelStatus = demo ? { current: demoCongestion, allowed: ['cubic', 'bbr', 'bbr2'], qdisc: demoQdisc, bbr: true, qdiscSupported: true, bbrV3Supported: true, bbrV3Installed: true, bbrV3Profile: 'standard', bbrV3Active: true, bbrV3ActiveProfile: 'standard', smartOptimization: true, distro: 'demo', source: 'demo' } : await kernelCongestion()
       current = {
         demo, installed: demo || existsSync('/etc/personal-vpn-stack/managed-by'), updatedAt: now,
         hostname: demo ? 'xray-console-ui-server' : os.hostname(), platform: demo ? 'Ubuntu 24.04 LTS' : `${os.type()} ${os.release()} · ${os.arch()}`,
@@ -225,7 +226,7 @@ export function createPanel({ demo = false, username = 'admin', password = '', d
         await ready
         if (path === '/api/snapshot' && request.method === 'GET') return json(response, 200, { ...current, jobs: jobs.items })
         if (path === '/api/kernel-status' && request.method === 'GET') {
-          kernelStatus = demo ? { current: demoCongestion, allowed: ['cubic', 'bbr', 'bbr2'], qdisc: demoQdisc, bbr: true, qdiscSupported: true, bbrV3Supported: true, distro: 'demo', source: 'demo' } : await kernelCongestion()
+          kernelStatus = demo ? { current: demoCongestion, allowed: ['cubic', 'bbr', 'bbr2'], qdisc: demoQdisc, bbr: true, qdiscSupported: true, bbrV3Supported: true, bbrV3Installed: true, bbrV3Profile: 'standard', bbrV3Active: true, bbrV3ActiveProfile: 'standard', smartOptimization: true, distro: 'demo', source: 'demo' } : await kernelCongestion()
           if (current) { current.kernel = kernelStatus; broadcast() }
           return json(response, 200, kernelStatus)
         }

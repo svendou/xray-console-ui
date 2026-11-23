@@ -203,13 +203,36 @@ function isBbrV3Supported() {
   const { distro, like } = distributionInfo()
   return distro === 'debian' || distro === 'ubuntu' || like.includes('debian')
 }
+function managedKernelProfile() {
+  try {
+    const packages = execFileSync('dpkg-query', ['-W', '-f=${binary:Package}\n'], { encoding: 'utf8', timeout: 3000 }).split('\n').filter(Boolean)
+    const kernels = packages.filter(value => /linux-image-.*-joeyblog-bbrv3(?:-max)?$/.test(value))
+    const active = `linux-image-${os.release()}-joeyblog-bbrv3`
+    const activeMax = `linux-image-${os.release()}-joeyblog-bbrv3-max`
+    return { installed: kernels.length > 0, profile: kernels.some(value => value.endsWith('-max')) ? 'max' : kernels.length ? 'standard' : null, active: kernels.includes(active) || kernels.includes(activeMax), activeProfile: kernels.includes(activeMax) ? 'max' : kernels.includes(active) ? 'standard' : null }
+  } catch { return { installed: false, profile: null, active: false, activeProfile: null } }
+}
+function smartOptimizationConfigured() {
+  const config = readText('/etc/sysctl.d/99-joeyblog.conf')
+  return config.includes('net.ipv4.tcp_limit_output_bytes = 4194304') && config.includes('net.ipv4.tcp_slow_start_after_idle = 0')
+}
 export async function kernelCongestion() {
   const current = readText('/proc/sys/net/ipv4/tcp_congestion_control') || 'unknown'
   const allowed = readText('/proc/sys/net/ipv4/tcp_allowed_congestion_control').split(/\s+/).filter(Boolean)
   const qdisc = readText('/proc/sys/net/core/default_qdisc') || 'unknown'
   const { distro } = distributionInfo()
   const bbrV3Supported = isBbrV3Supported()
-  return { current, allowed, qdisc, bbr: allowed.includes('bbr'), qdiscSupported: qdisc !== 'unknown', bbrV3Supported, distro, source: 'kernel' }
+  const profile = managedKernelProfile()
+  return { current, allowed, qdisc, bbr: allowed.includes('bbr'), qdiscSupported: qdisc !== 'unknown', bbrV3Supported, bbrV3Installed: profile.installed, bbrV3Profile: profile.profile, bbrV3Active: profile.active, bbrV3ActiveProfile: profile.activeProfile, smartOptimization: smartOptimizationConfigured(), distro, source: 'kernel' }
+}
+export async function restartManagedService(id, append) {
+  const unit = ({ xray: 'personal-vpn-stack', hy2: 'personal-vpn-stack-hy2' })[id]
+  if (!unit) throw new Error('服务标识无效。')
+  if (existsSync('/run/systemd/system')) await exec('systemctl', ['restart', `${unit}.service`], { timeout: 15000 })
+  else if (existsSync('/sbin/openrc')) await exec('rc-service', [unit, 'restart'], { timeout: 15000 })
+  else throw new Error('未找到 systemd 或 OpenRC。')
+  append(`[service] 已单独重启 ${id === 'xray' ? 'Xray' : 'Hysteria2'}。`)
+  return 0
 }
 export async function setKernelQdisc(qdisc, append) {
   if (!['fq', 'fq_codel', 'fq_pie', 'cake'].includes(qdisc)) throw new Error('队列调度算法无效。')
