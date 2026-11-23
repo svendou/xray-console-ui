@@ -2,13 +2,14 @@ import os from 'node:os'
 import { existsSync, readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { execFile, spawn } from 'node:child_process'
+import { execFile, execFileSync, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createInterface } from 'node:readline'
 import { nodeStats, nodeDefinitions } from './node-stats.mjs'
 
 const exec = promisify(execFile)
 let publicAddress = '', publicAddressStarted = false
+let mtprotoVersionCache = '—', mtprotoVersionCheckedAt = 0
 export const defaults = {
   server: '', reality_port: 43526, public_port: 43526, hy2_port: 43526, hy2_public_port: 43526,
   subscription_port: 43518, subscription_public_port: 43518, output_dir: '', cf_entry: 'cdns.doon.eu.org', hy2_enabled: true, tunnel_protocol: 'http2',
@@ -46,8 +47,18 @@ export function detectPublicAddress(demo = false) {
 function portFor(id, settings, mt) {
   return ({ xray: `TCP ${settings.reality_port}`, cloudflare: `${settings.tunnel_protocol.toUpperCase()}`, hy2: `UDP ${settings.hy2_port}`, subscription: `TCP ${settings.subscription_port}`, mtproto: mt ? `TCP ${mt.port}` : '—' })[id]
 }
+function mtprotoVersion() {
+  if (Date.now() - mtprotoVersionCheckedAt < 30000) return mtprotoVersionCache
+  mtprotoVersionCheckedAt = Date.now()
+  try {
+    const output = execFileSync('/usr/local/lib/personal-vpn-stack/mtg', ['--version'], { encoding: 'utf8', timeout: 2000, stdio: ['ignore', 'pipe', 'ignore'] })
+    const match = output.match(/\d+\.\d+\.\d+/)
+    mtprotoVersionCache = match ? `v${match[0]}` : '版本未知'
+  } catch { mtprotoVersionCache = '—' }
+  return mtprotoVersionCache
+}
 export function servicesFor(settings, states, mt) {
-  return definitions.map(([id, name, description, , version]) => ({ id, name, description, state: states[id] ?? 'missing', port: portFor(id, settings, mt), version: settings[version] || (id === 'subscription' ? 'Python 3' : '—') }))
+  return definitions.map(([id, name, description, , version]) => ({ id, name, description, state: states[id] ?? 'missing', port: portFor(id, settings, mt), version: id === 'mtproto' ? (mt?.version || mtprotoVersion()) : (settings[version] || (id === 'subscription' ? 'Python 3' : '—')) }))
 }
 function releaseVersion(value) {
   const match = String(value || '').match(/\d+(?:\.\d+)+/)
@@ -79,19 +90,21 @@ export async function checkServiceUpdates(services, demo = false) {
       hy2: { current: current.hy2 || '—', latest: 'v2.14.0', available: true, source: '演示数据' },
       cloudflare: { current: current.cloudflare || '—', latest: '2026.12.0', available: true, source: '演示数据' },
       subscription: { current: current.subscription || 'Python 3', latest: null, available: false, source: '订阅内容可手动更新' },
+      mtproto: { current: current.mtproto || 'v2.3.0', latest: 'v2.3.0', available: false, source: '演示数据' },
     },
   }
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 10000)
-  const [xrayTag, hy2Tag, cloudflareTag] = await Promise.all([latestRelease('XTLS/Xray-core', controller.signal), latestRelease('apernet/hysteria', controller.signal), latestRelease('cloudflare/cloudflared', controller.signal)])
+  const [xrayTag, hy2Tag, cloudflareTag, mtprotoTag] = await Promise.all([latestRelease('XTLS/Xray-core', controller.signal), latestRelease('apernet/hysteria', controller.signal), latestRelease('cloudflare/cloudflared', controller.signal), latestRelease('9seconds/mtg', controller.signal)])
   clearTimeout(timeout)
-  const source = xrayTag || hy2Tag || cloudflareTag ? 'GitHub Releases' : '暂时无法连接 GitHub'
-  const xrayLatest = displayRelease(xrayTag), hy2Latest = displayRelease(hy2Tag), cloudflareLatest = displayRelease(cloudflareTag)
+  const source = xrayTag || hy2Tag || cloudflareTag || mtprotoTag ? 'GitHub Releases' : '暂时无法连接 GitHub'
+  const xrayLatest = displayRelease(xrayTag), hy2Latest = displayRelease(hy2Tag), cloudflareLatest = displayRelease(cloudflareTag), mtprotoLatest = displayRelease(mtprotoTag)
   return {
     checkedAt: new Date().toISOString(), services: {
       xray: { current: current.xray || '—', latest: xrayLatest, available: newerVersion(xrayLatest, current.xray), source },
       hy2: { current: current.hy2 || '—', latest: hy2Latest, available: newerVersion(hy2Latest, current.hy2), source },
       cloudflare: { current: current.cloudflare || '—', latest: cloudflareLatest, available: newerVersion(cloudflareLatest, current.cloudflare), source },
+      mtproto: { current: current.mtproto || '—', latest: mtprotoLatest, available: newerVersion(mtprotoLatest, current.mtproto), source },
       subscription: { current: current.subscription || 'Python 3', latest: null, available: false, source: '订阅内容可手动更新' },
     },
   }

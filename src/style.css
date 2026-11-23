@@ -752,3 +752,27 @@ dialog::backdrop { background: var(--scrim); }
 @media (max-height: 780px) and (min-width: 761px) { .sidebar-health { display: none; } .sidebar-bottom { padding-top: 15px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; scroll-behavior: auto !important; transition: none !important; } }
 
+
+.linux-proxy-guide { padding: 0 24px 24px; }
+.linux-proxy-intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 16px 0 18px; border-bottom: 1px solid var(--border-subtle); }
+.linux-proxy-intro h3 { font-size: 15px; }
+.linux-proxy-intro p { max-width: 700px; margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.7; }
+.linux-guide-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.linux-guide-step { min-width: 0; display: flex; gap: 11px; padding: 15px; background: var(--surface-2); border: 1px solid var(--border-subtle); border-radius: 10px; }
+.linux-step-index { display: grid; place-items: center; width: 22px; height: 22px; flex: 0 0 22px; color: var(--blue-light); background: var(--blue-dim); border-radius: 6px; font: 12px var(--mono); }
+.linux-guide-step h4 { font-size: 12px; font-weight: 600; }
+.linux-guide-step p { margin-top: 6px; color: var(--muted); font-size: 10px; line-height: 1.7; }
+.linux-guide-step p code { color: var(--text-secondary); font: 10px var(--mono); }
+.linux-command { display: flex; align-items: stretch; gap: 8px; margin-top: 11px; padding: 9px 10px; background: var(--surface-3); border: 1px solid var(--border); border-radius: 7px; }
+.linux-command code { min-width: 0; flex: 1; overflow-wrap: anywhere; white-space: pre-wrap; color: var(--text-secondary); font: 10px/1.7 var(--mono); }
+.linux-command .icon-button { width: 28px; height: 28px; flex: 0 0 28px; }
+.linux-proxy-note { display: flex; align-items: flex-start; gap: 7px; margin-top: 14px; color: var(--muted); font-size: 10px; line-height: 1.7; }
+.linux-proxy-note svg { flex: 0 0 auto; margin-top: 2px; color: var(--blue-light); }
+@media (max-width: 900px) {
+  .linux-guide-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .linux-proxy-guide { padding: 0 18px 18px; }
+  .linux-proxy-intro { display: block; }
+  .linux-proxy-intro .private-label { display: inline-flex; margin-top: 12px; }
+}
