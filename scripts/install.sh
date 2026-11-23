@@ -87,6 +87,31 @@ fi
 node_ready || die '自动安装后仍未找到 Node.js 22.12+ 和 npm，请手动安装后重试。'
 command -v git >/dev/null 2>&1 || die '自动安装后仍未找到 git，请手动安装后重试。'
 
+ensure_build_memory() {
+  [ -r /proc/meminfo ] || return 0
+  command -v awk >/dev/null 2>&1 || return 0
+  available_mb=$(awk '/^MemAvailable:/ { print int($2 / 1024) }' /proc/meminfo)
+  swap_mb=$(awk '/^SwapTotal:/ { print int($2 / 1024) }' /proc/meminfo)
+  [ "${available_mb:-0}" -ge 1024 ] || [ "${swap_mb:-0}" -ge 512 ] || {
+    command -v mkswap >/dev/null 2>&1 || die '内存不足且缺少 mkswap，请先配置至少 512 MB swap。'
+    command -v swapon >/dev/null 2>&1 || die '内存不足且缺少 swapon，请先配置至少 512 MB swap。'
+    swap_file=${XRAY_CONSOLE_SWAP_FILE:-/swapfile}
+    swap_size_mb=${XRAY_CONSOLE_SWAP_MB:-1024}
+    case "$swap_size_mb" in ''|*[!0-9]*|0) die 'XRAY_CONSOLE_SWAP_MB 必须是正整数。' ;; esac
+    if grep -q "^$swap_file " /proc/swaps 2>/dev/null; then return 0; fi
+    [ ! -e "$swap_file" ] || die "内存不足且 $swap_file 未启用，请先启用现有 swap。"
+    echo "可用内存较低，正在创建 ${swap_size_mb} MB 临时 swap：$swap_file"
+    if command -v fallocate >/dev/null 2>&1; then
+      fallocate -l "${swap_size_mb}M" "$swap_file" || { rm -f "$swap_file"; die '创建 swap 文件失败。'; }
+    else
+      dd if=/dev/zero of="$swap_file" bs=1M count="$swap_size_mb" 2>/dev/null || { rm -f "$swap_file"; die '创建 swap 文件失败。'; }
+    fi
+    chmod 600 "$swap_file"
+    mkswap "$swap_file" >/dev/null || { rm -f "$swap_file"; die '初始化 swap 文件失败。'; }
+    swapon "$swap_file" || { rm -f "$swap_file"; die '启用 swap 失败，当前服务器可能禁止 swapon。'; }
+  }
+}
+
 case "$APP_DIR" in
   /*) ;;
   *) echo 'XRAY_CONSOLE_APP_DIR 必须是绝对路径。' >&2; exit 1 ;;
@@ -105,7 +130,8 @@ fi
 cd "$APP_DIR"
 [ -f package-lock.json ] || { echo '仓库缺少 package-lock.json。' >&2; exit 1; }
 [ -f scripts/setup-panel.sh ] || { echo '仓库缺少 scripts/setup-panel.sh。' >&2; exit 1; }
-npm ci
+ensure_build_memory
+npm ci --no-audit --fund=false
 npm run build
 sh scripts/setup-panel.sh
 
