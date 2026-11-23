@@ -455,6 +455,9 @@ label.protocol-option { cursor: pointer; }
 .kernel-group-section:has(.kernel-menu-card:nth-child(5)) .kernel-menu-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .kernel-menu-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; height: 116px; min-height: 116px; padding: 15px; border: 1px solid var(--border-subtle); border-radius: 10px; background: rgba(255,255,255,.018); color: var(--text-secondary); text-align: left; cursor: pointer; transition: border-color .16s ease, background .16s ease, transform .16s ease; }
 .kernel-menu-card:hover, .kernel-menu-card:focus-visible { border-color: currentColor; background: rgba(255,255,255,.045); transform: translateY(-1px); outline: none; }
+.kernel-menu-card:disabled { cursor: not-allowed; opacity: .42; filter: grayscale(.35); transform: none; }
+.kernel-menu-card:disabled:hover { border-color: var(--border-subtle); background: rgba(255,255,255,.018); }
+.kernel-menu-unavailable { color: var(--muted); font-size: 9px; }
 .kernel-menu-card strong { margin-top: 0; font-size: 13px; color: var(--text-primary); }
 .kernel-menu-card small { display: -webkit-box; max-height: 30px; margin-top: 5px; overflow: hidden; color: var(--muted); font-size: 10px; line-height: 15px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .kernel-menu-meta { position: absolute; top: 12px; right: 12px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; width: auto; height: 22px; min-height: 22px; }

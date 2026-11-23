@@ -157,7 +157,7 @@ export function createPanel({ demo = false, username = 'admin', password = '', d
       const memory = demo ? 38 : Math.round((1 - os.freemem() / os.totalmem()) * 100)
       if (demo && !history.length) history = Array.from({ length: 24 }, (_, i) => ({ time: new Date(Date.now() - (24 - i) * 3000).toISOString(), cpu: Math.round(12 + 7 * Math.sin(i / 2)), memory: 37 + Math.round(Math.sin(i / 3)) }))
       history = [...history, { time: now, cpu, memory }].slice(-60)
-      if (!kernelStatus) kernelStatus = demo ? { current: demoCongestion, allowed: ['cubic', 'bbr', 'bbr2'], qdisc: demoQdisc, bbr: true, source: 'demo' } : await kernelCongestion()
+      if (!kernelStatus) kernelStatus = demo ? { current: demoCongestion, allowed: ['cubic', 'bbr', 'bbr2'], qdisc: demoQdisc, bbr: true, qdiscSupported: true, bbrV3Supported: true, distro: 'demo', source: 'demo' } : await kernelCongestion()
       current = {
         demo, installed: demo || existsSync('/etc/personal-vpn-stack/managed-by'), updatedAt: now,
         hostname: demo ? 'xray-console-ui-server' : os.hostname(), platform: demo ? 'Ubuntu 24.04 LTS' : `${os.type()} ${os.release()} · ${os.arch()}`,
@@ -225,7 +225,7 @@ export function createPanel({ demo = false, username = 'admin', password = '', d
         await ready
         if (path === '/api/snapshot' && request.method === 'GET') return json(response, 200, { ...current, jobs: jobs.items })
         if (path === '/api/kernel-status' && request.method === 'GET') {
-          kernelStatus = demo ? { current: demoCongestion, allowed: ['cubic', 'bbr', 'bbr2'], qdisc: demoQdisc, bbr: true, source: 'demo' } : await kernelCongestion()
+          kernelStatus = demo ? { current: demoCongestion, allowed: ['cubic', 'bbr', 'bbr2'], qdisc: demoQdisc, bbr: true, qdiscSupported: true, bbrV3Supported: true, distro: 'demo', source: 'demo' } : await kernelCongestion()
           if (current) { current.kernel = kernelStatus; broadcast() }
           return json(response, 200, kernelStatus)
         }

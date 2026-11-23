@@ -180,14 +180,27 @@ export async function serviceLogs() {
     return readText(`/run/personal-vpn-stack/${file}.log`).split('\n').filter(Boolean).slice(-30).map(line => `[${id}] ${line}`)
   }).slice(-150)
 }
+function distributionInfo() {
+  const osRelease = readText('/etc/os-release')
+  const distro = (osRelease.match(/^ID=(.*)$/m)?.[1] || '').replace(/^"|"$/g, '').toLowerCase()
+  const like = (osRelease.match(/^ID_LIKE=(.*)$/m)?.[1] || '').replace(/^"|"$/g, '').toLowerCase()
+  return { distro, like }
+}
+function isBbrV3Supported() {
+  const { distro, like } = distributionInfo()
+  return distro === 'debian' || distro === 'ubuntu' || like.includes('debian')
+}
 export async function kernelCongestion() {
   const current = readText('/proc/sys/net/ipv4/tcp_congestion_control') || 'unknown'
   const allowed = readText('/proc/sys/net/ipv4/tcp_allowed_congestion_control').split(/\s+/).filter(Boolean)
   const qdisc = readText('/proc/sys/net/core/default_qdisc') || 'unknown'
-  return { current, allowed, qdisc, bbr: allowed.includes('bbr'), source: 'kernel' }
+  const { distro } = distributionInfo()
+  const bbrV3Supported = isBbrV3Supported()
+  return { current, allowed, qdisc, bbr: allowed.includes('bbr'), qdiscSupported: qdisc !== 'unknown', bbrV3Supported, distro, source: 'kernel' }
 }
 export async function setKernelQdisc(qdisc, append) {
   if (!['fq', 'fq_codel', 'fq_pie', 'cake'].includes(qdisc)) throw new Error('队列调度算法无效。')
+  if (!readText('/proc/sys/net/core/default_qdisc')) throw new Error('当前内核不支持 default_qdisc，已跳过队列调度。')
   await setKernelCongestion('bbr', append)
   await exec('sysctl', ['-w', `net.core.default_qdisc=${qdisc}`], { timeout: 5000 })
   append(`[kernel] 已切换队列调度：${qdisc}`)
@@ -243,14 +256,17 @@ async function executePinnedBbrScript(input, label, append) {
 }
 export function executeBbrV3(profile, append) {
   if (!['standard', 'max'].includes(profile)) throw new Error('BBR V3 版本无效。')
+  if (!isBbrV3Supported()) throw new Error('当前系统不是 Debian/Ubuntu 系列，不能安装 BBR V3 内核。')
   return executePinnedBbrScript(`1\n${profile === 'max' ? '2' : '1'}\n`, `BBR V3 ${profile === 'max' ? 'Max' : '标准版'}安装`, append)
 }
 export function executeBbrMenu(menu, append) {
   if (!['8', '9', '11', '12', '13', '14'].includes(menu)) throw new Error('BBR 脚本菜单无效。')
+  if (!isBbrV3Supported()) throw new Error('当前系统不是 Debian/Ubuntu 系列，不能执行 BBR V3 脚本菜单。')
   return executePinnedBbrScript(`${menu}\n${menu === '13' ? 'y\n' : ''}`, `BBR 脚本菜单 ${menu} `, append)
 }
 export function executeBbrSmart(region, rttMs, append) {
   if (!['asia', 'overseas'].includes(region) || !Number.isInteger(rttMs) || rttMs < 1 || rttMs > 5000) throw new Error('智能优化参数无效。')
+  if (!isBbrV3Supported()) throw new Error('当前系统不是 Debian/Ubuntu 系列，不能执行 BBR V3 智能优化。')
   return executePinnedBbrScript(`10\n${region === 'overseas' ? '2' : '1'}\n${rttMs}\n`, `BBR V3 智能优化（${rttMs} ms）`, append)
 }
 export { nodeStats, nodeDefinitions }

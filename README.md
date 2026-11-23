@@ -21,8 +21,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/svendou/xray-console-ui/main
 维护者发布新版本时，创建并推送 `v` 开头的 Git 标签。GitHub Actions 会在构建环境完成依赖安装、前端构建和预构建包发布：
 
 ```sh
-git tag v0.1.4
-git push origin v0.1.4
+git tag v0.1.5
+git push origin v0.1.5
 ```
 
 ### 安装开机服务
