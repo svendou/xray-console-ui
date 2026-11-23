@@ -7,7 +7,12 @@ import StatusBadge from './StatusBadge.vue'
 const icons: Record<string, string> = { reality: 'xray', cloudflare: 'cloudflare', hy2: 'hy2' }
 const testingNodes = ref<Record<string, boolean>>({})
 const carrierRows = (nodeId: string) => ['mobile', 'unicom', 'telecom'].map((id, index) => carrierLatencyByNode.value[nodeId]?.find(item => item.id === id) || ({ id, label: ['移动参考线路', '联通参考线路', '电信参考线路'][index], state: 'unconfigured', latencyMs: null, measuredAt: null, source: '点击刷新检测' }))
-const connectionState = (nodeId: string) => testingNodes.value[nodeId] || !carrierLatencyByNode.value[nodeId] ? '检测中' : carrierRows(nodeId).some(item => item.state === 'healthy') ? '正常' : '异常'
+const connectionState = (nodeId: string) => {
+  if (testingNodes.value[nodeId] || !carrierLatencyByNode.value[nodeId]) return '检测中'
+  const rows = carrierRows(nodeId)
+  if (!rows.some(item => item.latencyMs != null)) return '暂无探针'
+  return rows.some(item => item.state === 'healthy') ? '正常' : '异常'
+}
 async function testConnection(nodeId: string) {
   if (testingNodes.value[nodeId]) return
   testingNodes.value = { ...testingNodes.value, [nodeId]: true }
@@ -26,6 +31,6 @@ async function testConnection(nodeId: string) {
         <div class="node-stat-action"><small>仅刷新当前 {{ node.name }} 节点</small><button class="button small secondary" :disabled="testingNodes[node.id]" @click="testConnection(node.id)"><RefreshCw :size="13" :class="{ spin: testingNodes[node.id] }" />{{ testingNodes[node.id] ? '检测中…' : '检测连接' }}</button></div>
       </article>
     </div>
-    <div class="node-stats-foot"><Gauge :size="14" /><span>连接状态由三网参考线路汇总：移动、联通、电信任一正常即显示“正常”，三条全部超时才显示“异常”。</span></div>
+    <div class="node-stats-foot"><Gauge :size="14" /><span>有有效三网参考结果时汇总连接状态，任一线路正常即显示“正常”，全部超时显示“异常”，没有有效公共探针时显示“暂无探针”。</span></div>
   </section>
 </template>

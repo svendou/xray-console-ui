@@ -16,6 +16,7 @@ export interface Settings {
 }
 export interface Snapshot {
   demo: boolean; installed: boolean; updatedAt: string; hostname: string; platform: string;
+  publicAddress: string;
   uptime: number; cpu: number; memory: number; totalMemory: number; cores: number;
   settings: Settings; services: Service[]; jobs: Job[];
   history: { time: string; cpu: number; memory: number }[]

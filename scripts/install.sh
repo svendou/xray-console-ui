@@ -212,4 +212,4 @@ printf '%s\n' "$VERSION" > "$APP_DIR/.xray-console-ui-release"
 chmod 600 "$APP_DIR/.xray-console-ui-release"
 
 sh "$APP_DIR/scripts/setup-panel.sh"
-printf '%s\n' 'Xray Console UI 面板已安装并启动。' '默认监听 127.0.0.1:8787，请使用 SSH 转发访问。' '之后在面板中点击“安装 / 更新”部署代理。'
+printf '%s\n' 'Xray Console UI 面板已安装并启动。' '监听 0.0.0.0:8787，服务器面板可将公网端口映射到内部 8787。' '之后在面板中点击“安装 / 更新”部署代理。'

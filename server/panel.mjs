@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve, extname, sep } from 'node:path'
 import os from 'node:os'
 import { Jobs } from './jobs.mjs'
-import { defaults, readSettings, realServices, servicesFor, checkServiceUpdates, cpuTimes, executeScript, executeBbrV3, executeBbrMenu, executeBbrSmart, nodeExports, serviceLogs, nodeStats, nodeDefinitions, kernelCongestion, setKernelCongestion, setKernelQdisc } from './system.mjs'
+import { defaults, readSettings, detectPublicAddress, realServices, servicesFor, checkServiceUpdates, cpuTimes, executeScript, executeBbrV3, executeBbrMenu, executeBbrSmart, nodeExports, serviceLogs, nodeStats, nodeDefinitions, kernelCongestion, setKernelCongestion, setKernelQdisc } from './system.mjs'
 import { TrafficMonitor } from './traffic.mjs'
 
 const carrierProbes = [
@@ -31,7 +31,13 @@ async function globalpingCarrier(target, probe) {
       const value = await result.json()
       if (value.status === 'finished' || value.status === 'failed') {
         const measurements = value.results || value.measurements || []
-        const latency = measurements.flatMap(item => item?.result?.responses || item?.result?.measurements || [item?.result]).map(item => Number(item?.average ?? item?.avg ?? item?.latency)).find(item => Number.isFinite(item) && item > 0)
+        const latency = measurements.flatMap(item => {
+          const result = item?.result || {}
+          const stats = result.stats || {}
+          const timings = Array.isArray(result.timings) ? result.timings.map(timing => timing?.rtt) : []
+          const responses = result.responses || result.measurements || []
+          return [stats.avg, stats.min, ...timings, ...responses.map(response => response?.average ?? response?.avg ?? response?.latency ?? response?.rtt)]
+        }).map(item => Number(item)).find(item => Number.isFinite(item) && item > 0)
         return latency ? Math.round(latency) : null
       }
     }
@@ -155,6 +161,7 @@ export function createPanel({ demo = false, username = 'admin', password = '', d
       current = {
         demo, installed: demo || existsSync('/etc/personal-vpn-stack/managed-by'), updatedAt: now,
         hostname: demo ? 'xray-console-ui-server' : os.hostname(), platform: demo ? 'Ubuntu 24.04 LTS' : `${os.type()} ${os.release()} · ${os.arch()}`,
+        publicAddress: await detectPublicAddress(demo),
         uptime: demo ? 86400 * 12 + 3600 * 6 : os.uptime(), cpu, memory,
         totalMemory: demo ? 2 * 1024 ** 3 : os.totalmem(), cores: demo ? 2 : os.cpus().length,
         settings, services: demo ? servicesFor({ ...settings, xray_version: 'v26.11.9', cloudflared_version: '2026.10.1', hy2_version: 'v2.13.0' }, demoStates, demoStates.mtproto === 'missing' ? null : { port: 53528 }) : await realServices(settings),

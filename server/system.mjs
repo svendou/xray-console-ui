@@ -8,6 +8,7 @@ import { createInterface } from 'node:readline'
 import { nodeStats, nodeDefinitions } from './node-stats.mjs'
 
 const exec = promisify(execFile)
+let publicAddress = '', publicAddressStarted = false
 export const defaults = {
   server: '', reality_port: 43526, public_port: 43526, hy2_port: 43526, hy2_public_port: 43526,
   subscription_port: 43518, subscription_public_port: 43518, output_dir: '', cf_entry: 'cdns.doon.eu.org', hy2_enabled: true, tunnel_protocol: 'http2',
@@ -23,6 +24,24 @@ export function readText(path) { try { return readFileSync(path, 'utf8').trim() 
 export function readSettings() {
   const value = readText('/etc/personal-vpn-stack/settings.json')
   return value ? { ...defaults, ...JSON.parse(value) } : { ...defaults }
+}
+export function detectPublicAddress(demo = false) {
+  if (demo) return '203.0.113.24'
+  if (!publicAddressStarted) {
+    publicAddressStarted = true
+    void (async () => {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 5000)
+      try {
+        const response = await fetch('https://api.ipify.org?format=json', { signal: controller.signal })
+        if (!response.ok) return
+        const value = await response.json()
+        if (typeof value.ip === 'string' && value.ip.length <= 64) publicAddress = value.ip
+      } catch { /* public IP detection is optional */
+      } finally { clearTimeout(timeout) }
+    })()
+  }
+  return publicAddress
 }
 function portFor(id, settings, mt) {
   return ({ xray: `TCP ${settings.reality_port}`, cloudflare: `${settings.tunnel_protocol.toUpperCase()}`, hy2: `UDP ${settings.hy2_port}`, subscription: `TCP ${settings.subscription_port}`, mtproto: mt ? `TCP ${mt.port}` : '—' })[id]
