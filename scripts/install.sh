@@ -9,6 +9,7 @@ APP_DIR=${XRAY_CONSOLE_APP_DIR:-/opt/xray-console-ui}
 VERSION=${XRAY_CONSOLE_VERSION:-latest}
 RELEASE_URL=${XRAY_CONSOLE_RELEASE_URL:-}
 RELEASE_BASE_URL=${XRAY_CONSOLE_RELEASE_BASE_URL:-https://github.com/svendou/xray-console-ui/releases/download}
+LATEST_RELEASE_URL=${XRAY_CONSOLE_LATEST_URL:-https://api.github.com/repos/svendou/xray-console-ui/releases/latest}
 ACTION=${1:-menu}
 
 die() {
@@ -169,10 +170,14 @@ node_version_ok || die '自动安装后仍未找到 Node.js 22.12+，请手动�
 
 if [ -z "$RELEASE_URL" ]; then
   if [ "$VERSION" = latest ]; then
-    RELEASE_URL="$RELEASE_BASE_URL/latest/download/xray-console-ui.tar.gz"
-  else
-    RELEASE_URL="$RELEASE_BASE_URL/$VERSION/xray-console-ui.tar.gz"
+    command -v awk >/dev/null 2>&1 || die '获取最新版本需要 awk。'
+    VERSION=$(curl -fsSL -H 'Accept: application/vnd.github+json' -H 'User-Agent: xray-console-ui-installer' "$LATEST_RELEASE_URL" | awk -F '"' '/"tag_name"[[:space:]]*:/ { print $4; exit }') || die '无法获取 GitHub 最新 Release。'
+    case "$VERSION" in
+      v[0-9]*.[0-9]*.[0-9]*) ;;
+      *) die 'GitHub 最新 Release 标签无效。' ;;
+    esac
   fi
+  RELEASE_URL="$RELEASE_BASE_URL/$VERSION/xray-console-ui.tar.gz"
 fi
 CHECKSUM_URL=${XRAY_CONSOLE_CHECKSUM_URL:-${RELEASE_URL%.tar.gz}.sha256}
 
