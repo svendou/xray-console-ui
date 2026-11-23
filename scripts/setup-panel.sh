@@ -15,14 +15,7 @@ mkdir -p /etc/xray-console-ui
 chmod 700 /etc/xray-console-ui
 PASSWORD_EXPORT_FILE=/root/xray-console-ui-password
 if [ "${PANEL_ROTATE_PASSWORD:-0}" = 1 ] || [ ! -f /etc/xray-console-ui/password ]; then
-  if command -v openssl >/dev/null 2>&1; then
-    PANEL_SECRET=$(openssl rand -hex 18)
-  else
-    PANEL_SECRET=$(od -An -N18 -tx1 /dev/urandom | tr -d '[:space:]')
-  fi
-  [ "${#PANEL_SECRET}" -ge 12 ] || { echo '无法生成安全的管理密码。' >&2; exit 1; }
-  printf '%s' "$PANEL_SECRET" > /etc/xray-console-ui/password
-  unset PANEL_SECRET
+  printf '%s' '12345' > /etc/xray-console-ui/password
 fi
 if [ "${PANEL_ROTATE_PASSWORD:-0}" = 1 ] || [ ! -f "$PASSWORD_EXPORT_FILE" ]; then
   cp /etc/xray-console-ui/password "$PASSWORD_EXPORT_FILE"

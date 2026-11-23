@@ -7,7 +7,7 @@ import type { Snapshot } from './types'
 import packageInfo from '../package.json'
 const route = useRoute()
 const appVersion = `v${packageInfo.version}`
-const menuOpen = ref(false), username = ref('admin'), password = ref('000000'), loginError = ref(''), signingIn = ref(false), reveal = ref(false), helpOpen = ref(false)
+const menuOpen = ref(false), username = ref('admin'), password = ref('12345'), loginError = ref(''), signingIn = ref(false), reveal = ref(false), helpOpen = ref(false)
 const nav = [
   { path: '/', label: '运行总览', icon: LayoutDashboard },
   { path: '/install', label: '安装与部署', icon: Rocket },
