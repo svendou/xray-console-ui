@@ -13,20 +13,21 @@ elif command -v rc-service >/dev/null 2>&1; then INIT=openrc
 else echo '仅支持 systemd / OpenRC。' >&2; exit 1; fi
 mkdir -p /etc/xray-console-ui
 chmod 700 /etc/xray-console-ui
+PASSWORD_EXPORT_FILE=/root/xray-console-ui-password
 if [ ! -f /etc/xray-console-ui/password ]; then
-  [ -t 0 ] || { echo '首次运行请使用交互终端输入管理密码。' >&2; exit 1; }
-  printf '设置管理密码（至少 6 个字符）：'
-  trap 'stty echo' EXIT HUP INT TERM
-  stty -echo
-  IFS= read -r PANEL_SECRET
-  stty echo
-  trap - EXIT HUP INT TERM
-  printf '\n'
-  [ "${#PANEL_SECRET}" -ge 6 ] || { echo '密码长度不足。' >&2; exit 1; }
+  if command -v openssl >/dev/null 2>&1; then
+    PANEL_SECRET=$(openssl rand -hex 18)
+  else
+    PANEL_SECRET=$(od -An -N18 -tx1 /dev/urandom | tr -d '[:space:]')
+  fi
+  [ "${#PANEL_SECRET}" -ge 12 ] || { echo '无法生成安全的管理密码。' >&2; exit 1; }
   printf '%s' "$PANEL_SECRET" > /etc/xray-console-ui/password
   unset PANEL_SECRET
 fi
-chmod 600 /etc/xray-console-ui/password
+if [ ! -f "$PASSWORD_EXPORT_FILE" ]; then
+  cp /etc/xray-console-ui/password "$PASSWORD_EXPORT_FILE"
+fi
+chmod 600 /etc/xray-console-ui/password "$PASSWORD_EXPORT_FILE"
 if [ ! -f /etc/xray-console-ui/panel.env ]; then
   printf '%s\n' 'PANEL_PASSWORD_FILE=/etc/xray-console-ui/password' 'PANEL_HOST=0.0.0.0' 'PANEL_PORT=8787' 'PANEL_ALLOW_INSECURE_HTTP=1' > /etc/xray-console-ui/panel.env
 fi
@@ -83,3 +84,4 @@ UNIT
   rc-service xray-console-ui status
 fi
 printf '%s\n' '面板服务已启动，监听 0.0.0.0:8787。服务器面板可将公网端口映射到 8787。' '之后在网页点击“安装 / 更新”部署代理。完整说明见 README.md。'
+printf '%s\n' "管理密码文件：$PASSWORD_EXPORT_FILE"
