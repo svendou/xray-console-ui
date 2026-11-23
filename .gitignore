@@ -1,0 +1,27 @@
+# Dependencies and build output
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Local runtime data and secrets
+.panel-data/
+.env
+.env.*
+!.env.example
+
+# Logs, test output and coverage
+*.log
+coverage/
+.nyc_output/
+
+# Local editor and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Local screenshots and exported QA artifacts
+qa/*.png

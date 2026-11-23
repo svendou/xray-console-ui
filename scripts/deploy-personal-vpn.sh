@@ -94,6 +94,7 @@ usage() {
   restart-tunnel   重建临时隧道并导出新域名。
 Telegram 代理：
   mtproto          安装 / 更新 Telegram MTProto 代理。
+  mtproto-restart  仅重启 Telegram MTProto 代理及健康监控。
   mtproto-protect  安装 / 更新 MTProto 新连接限速防护。
   mtproto-unprotect 移除本脚本安装的 MTProto 限速防护。
   mtproto-info     查看 MTProto 密钥和 Telegram 链接。
@@ -246,12 +247,13 @@ interactive_menu() {
           2) menu_args=(restart-tunnel) ;;
         esac ;;
       2)
-        arrow_menu 'Telegram 代理' "$footer" 0 '安装 / 更新 TG 代理' '查看 TG 代理链接' '安装 / 配置连接防护' '配置自动校时' || continue
+        arrow_menu 'Telegram 代理' "$footer" 0 '安装 / 更新 TG 代理' '重启 TG 代理' '查看 TG 代理链接' '安装 / 配置连接防护' '配置自动校时' || continue
         case $MENU_SELECTION in
           0) menu_args=(mtproto); menu_interactive=1 ;;
-          1) menu_args=(mtproto-info) ;;
-          2) menu_args=(mtproto-protect) ;;
-          3) menu_args=(time-sync) ;;
+          1) menu_args=(mtproto-restart) ;;
+          2) menu_args=(mtproto-info) ;;
+          3) menu_args=(mtproto-protect) ;;
+          4) menu_args=(time-sync) ;;
         esac ;;
       3)
         arrow_menu '服务控制' "$footer" 0 '启动全部服务' '重启代理与订阅（保留 CF 隧道）' '停止全部服务' || continue
@@ -401,6 +403,7 @@ load_settings() {
     SUB_PUBLIC_PORT=${SUB_PUBLIC_PORT:-$(setting subscription_public_port "$SUB_PORT")}
     HY2_REQUESTED=${HY2_REQUESTED:-$(setting hy2_requested 1)}
     NODE_COUNTRY=${NODE_COUNTRY:-$(setting node_country '')}
+    OUTPUT_DIR=${OUTPUT_DIR:-$(setting output_dir "$DATA_DIR/clients")}
     if [[ $(setting hy2_enabled true) == false ]]; then HY2_ENABLED=0; else HY2_ENABLED=1; fi
   fi
   REALITY_PORT=${REALITY_PORT:-43526}
@@ -1086,7 +1089,7 @@ detect_node_country() {
 }
 
 write_settings() {
-  jq -n --arg server "$SERVER_ADDR" --argjson rp "$REALITY_PORT" --argjson pp "$PUBLIC_PORT" --argjson wp "$WS_PORT" \
+  jq -n --arg server "$SERVER_ADDR" --arg output "$OUTPUT_DIR" --argjson rp "$REALITY_PORT" --argjson pp "$PUBLIC_PORT" --argjson wp "$WS_PORT" \
     --argjson mp "$METRICS_PORT" --arg sni "$REALITY_SNI" --arg entry "$CF_ENTRY" \
     --arg protocol "$TUNNEL_PROTOCOL" --arg version "$XRAY_VERSION" --arg cv "$CF_VERSION" --arg hv "$HY2_VERSION" \
     --argjson hp "$HY2_PORT" --argjson hpp "$HY2_PUBLIC_PORT" --argjson sp "$SUB_PORT" --argjson spp "$SUB_PUBLIC_PORT" \
@@ -1094,7 +1097,7 @@ write_settings() {
     '{schema:2,core:"xray",xray_version:$version,server:$server,reality_port:$rp,public_port:$pp,
       ws_port:$wp,metrics_port:$mp,reality_sni:$sni,cf_entry:$entry,tunnel_protocol:$protocol,cloudflared_version:$cv,
       hy2_port:$hp,hy2_public_port:$hpp,subscription_port:$sp,subscription_public_port:$spp,
-      node_country:$country,hy2_version:$hv,hy2_enabled:($he==1),hy2_requested:$requested}' > "$ETC_DIR/settings.json"
+      node_country:$country,hy2_version:$hv,output_dir:$output,hy2_enabled:($he==1),hy2_requested:$requested}' > "$ETC_DIR/settings.json"
   chmod 0600 "$ETC_DIR/settings.json"
 }
 
@@ -1878,8 +1881,12 @@ uninstall_stack() {
     [[ ! -L $file ]] || die "拒绝卸载符号链接目录：$file"
   done
   printf '\n将卸载本脚本的 Cloudflare、REALITY、Hy2、MTProto 和订阅服务，删除程序、账号配置及默认目录中的节点文件。\nSSH、防火墙及手工部署的旧服务不受影响。\n'
-  read -r -p '确认卸载？输入 y 继续 [N]：' answer || return 0
-  [[ $answer == y || $answer == Y ]] || { say '已取消卸载。'; return 0; }
+  if [[ ${PERSONAL_VPN_CONFIRM:-0} == 1 ]]; then
+    answer=y
+  else
+    read -r -p '确认卸载？输入 y 继续 [N]：' answer || return 0
+    [[ $answer == y || $answer == Y ]] || { say '已取消卸载。'; return 0; }
+  fi
   if [[ -f $(service_file "$MT_HEALTH_UNIT") ]]; then
     svc stop "$MT_HEALTH_UNIT"
     svc disable "$MT_HEALTH_UNIT"
@@ -2341,6 +2348,20 @@ show_mtproto() {
   show_mtproto_protection "$(jq -r .port "$ETC_DIR/mtproto.json")"
 }
 
+restart_mtproto() {
+  [[ -r "$ETC_DIR/mtproto.json" ]] || die '请先运行 mtproto 安装 MTProto。'
+  validate_mtproto_file "$ETC_DIR/mtproto.json"
+  local port
+  port=$(jq -r .port "$ETC_DIR/mtproto.json")
+  restart_service "$MT_UNIT"
+  wait_mtproto "$port" || die 'MTProto 重启检查失败，请查看 logs。'
+  if [[ -f $(service_file "$MT_HEALTH_UNIT") ]]; then
+    restart_service "$MT_HEALTH_UNIT"
+    svc is-active "$MT_HEALTH_UNIT" || die 'MTProto 健康监控重启失败。'
+  fi
+  say 'MTProto 已单独重启，其他节点和 Cloudflare 隧道未变更。'
+}
+
 tcp_overflow_counters() {
   [[ -r /proc/net/netstat ]] || return 0
   awk '
@@ -2729,8 +2750,8 @@ main() {
     install) install_stack ;;
     time-sync) configure_time_sync ;;
     uninstall) uninstall_stack ;;
-    mtproto|mtproto-protect|mtproto-unprotect|mtproto-info|export|status|logs|start|restart|restart-tunnel|set-entry|stop)
-      if [[ $command_name == mtproto || $command_name == mtproto-protect || $command_name == mtproto-unprotect || $command_name == mtproto-info ]]; then
+    mtproto|mtproto-restart|mtproto-protect|mtproto-unprotect|mtproto-info|export|status|logs|start|restart|restart-tunnel|set-entry|stop)
+      if [[ $command_name == mtproto || $command_name == mtproto-restart || $command_name == mtproto-protect || $command_name == mtproto-unprotect || $command_name == mtproto-info ]]; then
         [[ -r "$ETC_DIR/managed-by" ]] || die '请先选择“安装与更新”，完成后再安装 MTProto。'
       fi
       need_installation
@@ -2740,6 +2761,7 @@ main() {
       case $command_name in status|logs|stop) ;; *) validate_settings ;; esac
       case $command_name in
         mtproto) install_mtproto ;;
+        mtproto-restart) restart_mtproto ;;
         mtproto-protect) install_mtproto_protection ;;
         mtproto-unprotect) remove_mtproto_protection ;;
         mtproto-info) show_mtproto ;;

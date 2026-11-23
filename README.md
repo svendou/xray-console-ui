@@ -1,236 +1,204 @@
-# 个人节点部署脚本
+# Xray Console UI · 个人节点管理台
 
-基于 **Xray** 的个人节点部署与管理脚本，提供中文一、二级菜单。Xray 提供 VLESS REALITY 和经过 Cloudflare 隧道的 WebSocket 节点；独立 Hysteria2 服务提供 Hy2；Telegram MTProto 使用单独安装的 mtg。
+基于你提供的 `deploy-personal-vpn.sh`，用 Vue 3 + TypeScript + Vite 创建的中文 Web 管理台。全深色、自适应桌面和手机。Node.js 后台使用标准库，不需要数据库。
 
-首次安装使用默认端口，按提示确认地址和 Hy2 开关即可。安装后可查看订阅、修改设置、更新版本和管理服务。
+## 部署到真实 Linux 服务器
 
-首次安装的默认版本如下；已有安装会优先保留配置中记录的版本。
+### 一键安装
 
-| 组件 | 默认版本 |
-| --- | --- |
-| Xray | `v26.11.9` |
-| Hysteria2 | `app/v2.13.0` |
-| cloudflared | `2026.10.1` |
-| mtg（单独安装） | `v2.3.0` |
-
-程序从官方发布页面下载并校验 SHA-256。菜单顶部显示服务器地址、实际安装的核心版本、Hy2 配置状态、CF 入口、服务状态及已安装的 mtg 版本。
-
-## 使用条件
-
-- 一台有 root 权限、能够访问 GitHub 和 Cloudflare 的 Linux 服务器。
-- 支持 amd64 / arm64 架构。
-- 系统适配：Ubuntu 20.04+、Debian 11+、CentOS 7+ / RHEL 系列（systemd），以及 Alpine（OpenRC）。建议优先使用仍受维护的系统版本。
-- NAT 服务器需提前确认公网地址，以及服务商提供的 TCP / UDP 映射端口。
-
-## 开始使用
-
-仓库地址：[svendou/vless-2go](https://github.com/svendou/vless-2go)。以 root 登录服务器，确认已安装 `curl`，即可直接从 GitHub 下载脚本，无需安装 Git 或手动上传。
-
-**下载最新版脚本并打开中文菜单（推荐）：**
-
-```bash
-curl -fsSL --retry 3 https://raw.githubusercontent.com/svendou/vless-2go/main/deploy-personal-vpn.sh -o deploy-personal-vpn.sh && bash deploy-personal-vpn.sh
-```
-
-**下载并直接安装基础节点：** 将 `YOUR_PUBLIC_IP` 替换为服务器公网 IPv4 或域名。
-
-```bash
-curl -fsSL --retry 3 https://raw.githubusercontent.com/svendou/vless-2go/main/deploy-personal-vpn.sh -o deploy-personal-vpn.sh && bash deploy-personal-vpn.sh install --server YOUR_PUBLIC_IP
-```
-
-直接安装使用默认端口，首次安装默认启用 Hy2；TG 代理和连接防护需在基础安装完成后分别安装。NAT 服务器需增加下方“端口设置”中的公网映射参数。
-
-命令使用 `main` 分支的 Raw 原始文件地址；GitHub 的 `/blob/` 链接是网页，不能直接作为脚本执行。脚本会调用自身处理菜单操作，因此先保存到文件再运行。再次运行下载命令可获取仓库中的最新脚本；更新核心版本仍需选择菜单中的更新项或指定版本参数。
-
-也可下载 [deploy-personal-vpn.sh](deploy-personal-vpn.sh) 后上传到服务器。已有本地文件时直接运行：
-
-```bash
-bash deploy-personal-vpn.sh
-```
-
-Alpine 未安装 Bash 时，运行：
+你提供 Git 仓库地址后，最终命令可以直接写成下面的形式：
 
 ```sh
-sh deploy-personal-vpn.sh
+bash <(curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/scripts/install.sh) https://github.com/OWNER/REPO.git
 ```
 
-进入 **安装与更新 → 安装 / 调整节点配置**，按提示操作：
+安装器会检查 Linux、Node.js 22.12+、npm 和 git，拉取或更新项目，执行 `npm ci` 和 `npm run build`，创建管理密码，并启动 systemd 或 OpenRC 服务。首次运行时会提示输入面板密码。
 
-1. 确认服务器的公网 IP 或域名。
-2. 确认 Cloudflare 入口；填写 `auto` 可使用当前隧道域名。
-3. 选择是否启用 Hy2，默认启用。
+当前仓库地址还未提供，`OWNER/REPO` 是占位符。收到实际 Git 地址后，把上面的命令替换成可直接复制的最终版本。
 
-直接回车即可采用方括号中的默认值，无需逐项输入端口。安装完成后，终端会显示订阅链接。
+面板后台和代理脚本需要运行在同一台 Linux 服务器，并以 root 权限管理服务。部署前准备 Node.js 22.12+ 或 Node.js 24 LTS，以及 SSH 访问权限。
 
-需要自定义端口时，可在安装后再次进入“安装 / 调整节点配置”；首次安装到 NAT 服务器，也可使用下方命令指定映射端口。
+### 本地构建
 
-## 菜单
+在 Windows 或 Linux 的项目目录执行：
+
+```powershell
+cd 'E:\新建文件夹\xray-console-ui'
+npm install
+npm run build
+```
+
+### 上传项目
+
+上传 `dist`、`server`、`scripts`、`public`、`package.json` 和 `README.md` 到服务器。生产后台使用 Node.js 标准库，不需要上传 `node_modules`，也不需要在服务器运行 `npm install`。
+
+```powershell
+scp -r dist server scripts public package.json README.md root@YOUR_SERVER:/opt/xray-console-ui
+```
+
+### 安装开机服务
+
+SSH 登录服务器后执行：
+
+```sh
+cd /opt/xray-console-ui
+sh scripts/setup-panel.sh
+```
+
+脚本会检查 Linux 和 Node.js 版本，首次运行时设置管理密码，并安装 systemd 或 OpenRC 服务。密码保存在 `/etc/xray-console-ui/password`，默认权限为 root 可读。面板默认只监听 `127.0.0.1:8787`。
+
+查看服务状态：
+
+```sh
+systemctl status xray-console-ui
+```
+
+### 不安装系统服务时直接启动
+
+需要临时运行或排查时，可以使用新增的 Linux 启动脚本：
+
+```sh
+cd /opt/xray-console-ui
+sh scripts/start-panel.sh
+```
+
+它会读取 `/etc/xray-console-ui/panel.env`。如果没有环境文件，需要先设置密码：
+
+```sh
+PANEL_PASSWORD_FILE=/etc/xray-console-ui/password sh scripts/start-panel.sh
+```
+
+关闭当前终端后，前台面板也会停止。长期运行使用 `setup-panel.sh` 安装系统服务。
+
+### SSH 转发访问
+
+在本地电脑保持以下命令运行：
+
+```sh
+ssh -N -L 8787:127.0.0.1:8787 root@YOUR_SERVER
+```
+
+然后打开 [http://127.0.0.1:8787](http://127.0.0.1:8787)。使用安装面板服务时设置的管理密码登录。进入“安装与部署”，填写服务器公网地址、端口、Cloudflare 入口和 Hy2 选项，确认后由后台执行 `deploy-personal-vpn.sh`。
+
+公网 IPv4 或域名填写代理服务器地址，不要填写面板访问地址。NAT 端口映射和服务器防火墙需要根据你的服务商配置。
+
+### HTTPS 域名访问
+
+使用 Nginx 或 Caddy 终止 HTTPS，反向代理到 `127.0.0.1:8787`。编辑环境文件：
+
+```sh
+nano /etc/xray-console-ui/panel.env
+```
+
+```ini
+PANEL_PASSWORD_FILE=/etc/xray-console-ui/password
+PANEL_ORIGIN=https://panel.example.com
+```
+
+重启服务：
+
+```sh
+systemctl restart xray-console-ui
+```
+
+Nginx 配置示例：
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8787;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+    proxy_read_timeout 3600s;
+}
+```
+
+真实环境中不要把管理面板接到代理订阅使用的临时 Cloudflare 隧道上。
+
+## 本地查看
+
+需要 Node.js 22.12+（推荐 24 LTS）。
+
+```powershell
+cd 'E:\新建文件夹\xray-console-ui'
+npm install
+npm run dev
+```
+
+打开 http://127.0.0.1:5173 。`npm run dev` 同时启动前端和**演示后台**，登录账号是 `admin`，密码是 `000000`。演示包含完整的模拟安装、任务输出、服务启停和二维码；数据明确标记为模拟，不会在 Windows 上执行 Linux 安装命令。演示地址和密钥不能用于真实连接。
+
+```sh
+npm run build  # Vue 类型检查和生产构建
+npm test      # 命令校验、任务持久化、并发保护、登录、来源检查与 SSE 测试
+npm run demo  # 直接在 127.0.0.1:8787 查看已构建的演示版
+```
+
+## 已实现
+
+- **运行总览**：CPU、内存、运行时间、组件状态；每 3 秒通过 SSE 推送。曲线展示面板启动后的实际采样，最多保留 3 分钟，可暂停显示。
+- **流量与测速**：读取默认出口网卡的累计上下行流量、1 TB 额度进度、实时速率和峰值；当前网络延迟连续检测 3 次；每个节点独立显示移动、联通、电信三条 Globalping ASN 参考线路。三网公共探针不可用时明确显示暂无探针，不伪造结果。
+- **安装与部署**：填写公网地址、TCP/UDP 内外端口、CF 入口、隧道协议；选择 Hy2；提交后在后台调用原脚本。脚本保留其校验和回滚行为。
+- **服务管理**：全部启动、停止、重启；重建临时隧道；安装 / 单独重启 MTProto；启用或移除连接限速防护；配置 Chrony 自动校时。
+- **节点与订阅**：通用订阅、Mihomo 订阅、备用直连、独立节点、TG 链接；复制、二维码、节点文件下载。
+- **节点列表**：REALITY、Cloudflare、Hysteria2 分开显示服务状态、协议和监听地址；总览页和节点页共用同一列表。服务器延迟在总览页按当前访问网络检测。
+- **任务与日志**：任务异步执行、实时输出、历史任务、筛选、导出；服务日志每 5 秒读取，可关闭自动刷新。
+- **连接设置**：调整 CF 入口、查看端口映射、切换内核已提供的 BBR / 三方 BBR 算法、查看真实部署步骤，并提供脚本组件卸载入口。
+- **登录保护**：真实模式要求至少 6 个字符的密码，HttpOnly / SameSite 会话，来源校验、访问域名校验、登录限速；HTTPS 配置下启用 Secure Cookie。
+
+## 配置项
+
+| 环境变量 | 默认值 | 用途 |
+|---|---|---|
+| `PANEL_PASSWORD_FILE` | 无 | 推荐的密码来源，读取受保护文件 |
+| `PANEL_PASSWORD` | 无 | 可代替密码文件；至少 6 个字符，不要提交到仓库 |
+| `PANEL_USERNAME` | `admin` | 管理账号；演示模式固定使用 `admin` |
+| `PANEL_HOST` | `127.0.0.1` | 监听地址；演示版只允许本机回环 |
+| `PANEL_PORT` | `8787` | 后台与生产静态页面端口 |
+| `PANEL_ORIGIN` | 本机 8787 来源 | HTTPS 对外访问来源；同时放行对应 Host |
+| `PANEL_DATA_DIR` | `.panel-data/live` | 私有任务历史目录；演示为 `.panel-data/demo` |
+| `PANEL_NET_INTERFACE` | 自动选择默认出口 | 指定统计网卡，例如 `eth0`；Linux `/proc/net/dev` 读取 |
+| `PANEL_TRAFFIC_QUOTA_BYTES` | `1099511627776` | 流量统计额度，默认 1 TiB（界面显示 1 TB） |
+
+真实开发环境：在 Linux root 环境配置密码后运行 `npm run dev:live`。开发代理固定使用 `127.0.0.1:5173 → 127.0.0.1:8787`。
+
+## 数据与运行约定
+
+- 原始上传脚本保持不变。`scripts/deploy-personal-vpn.sh` 是同内容的 LF 换行副本，避免 Windows 换行影响 Linux。升级代理脚本时替换此副本后先检查兼容性。
+- 网页关闭、刷新或退出登录都不取消已提交任务。不要在安装时重启后台或服务器：后台重启后将遗留任务标记“已中断”，**不自动重试**；检查服务后再决定是否重新执行。
+- 单后台实例管理单服务器。应用阻止并发提交；原脚本的 `flock` 同时防止与 SSH 执行冲突。
+- 任务保留最近 30 个，每个最多 500 行、每行最多 4000 字符；需要完整长期审计时增加日志归档。日志、节点和订阅都可能包含密钥，不要分享。
+- 前端使用 Vue 转义输出，不把脚本日志作为 HTML；API 只接受固定命令和校验过的独立参数，不接受任意 Shell 命令。
+- 节点从原脚本默认导出目录 `/var/lib/personal-vpn-stack/clients` 读取。点击「更新导出」后到任务页确认成功，再点「重新读取」。
+- 服务状态是进程检查；CPU / 内存是主机读数，**不是代理流量统计**。外网连通性需要客户端实测。
+- 流量卡片读取 Linux `/proc/net/dev` 的默认出口网卡，首次采样只建立基线；每日累计保存在 `.panel-data/traffic.json`。它代表整台服务器网卡流量，包含 SSH、系统更新和其他进程。要精确到 Xray / Hy2 或单个节点，需要后续增加 cgroup / nftables / eBPF 计量规则。
+- “服务器延迟”由当前浏览器向面板服务器发起 3 次请求，显示平均、最低、最高和失败次数。通过公网 HTTPS 域名访问时代表当前用户网络到服务器的真实延迟；通过 SSH 本地转发时只代表本地转发链路。
+- 不实现多用户、计费、流量配额或网页终端；卸载入口保留原脚本的托管范围和确认语义。
+
+## 项目结构
 
 ```text
-1. 安装与更新
-   ├─ 安装 / 调整节点配置
-   ├─ 重新安装（保留当前配置）
-   └─ 更新 Xray 至最新稳定版（保留配置）
-2. 节点与订阅
-   ├─ 查看节点、订阅与二维码
-   ├─ 更换 CF 入口
-   └─ 重建 CF 隧道（订阅域名会变化）
-3. Telegram 代理
-   ├─ 安装 / 更新 TG 代理
-   ├─ 查看 TG 代理链接
-   ├─ 安装 / 配置连接防护
-   └─ 配置自动校时
-4. 服务控制
-   ├─ 启动全部服务
-   ├─ 重启代理与订阅（保留 CF 隧道）
-   └─ 停止全部服务
-5. 状态与日志
-   ├─ 查看状态、版本与端口
-   └─ 查看最近服务日志
-6. 卸载全部组件
-0. 退出
+src/
+  App.vue                管理台外壳与登录
+  views/                 六个业务页面
+  components/            状态标签与确认对话框
+  store.ts               API、实时连接与共享状态
+  tokens.css             语义化设计变量
+  style.css              桌面 / 手机布局
+server/
+  index.mjs              启动与真实环境检查
+  panel.mjs              HTTP、登录、SSE、状态采集
+  jobs.mjs               任务执行状态与持久化
+  policy.mjs             操作白名单与参数校验
+  system.mjs             原脚本、服务状态和节点导出适配
+  panel.test.mjs         核心行为测试
+scripts/
+  install.sh            Git 仓库一键安装脚本
+  setup-panel.sh         面板初始安装与开机启动
+  start-panel.sh         Linux 前台启动脚本
+  deploy-personal-vpn.sh 原部署脚本副本
 ```
 
-支持方向键、j/k 或数字选择，Enter 确认；二级菜单按 0 或 q 返回，主菜单按 0 或 q 退出。普通终端也可以直接输入编号。“重新安装”和“更新 Xray”仅在已有安装时显示。操作失败会显示错误并返回菜单。
+设计与产品约定见 `PRODUCT.md`、`DESIGN.md`、`.impeccable/surfaces/console.md`。这些文件应随源码保存，不要将实际 `.panel-data`、密码文件或环境配置提交到仓库。
 
-## 导入订阅
-
-安装完成后，或通过 **节点与订阅 → 查看节点、订阅与二维码** 获取链接：
-
-- **通用订阅**：添加到支持对应协议的客户端“订阅”功能中。
-- **Clash Meta / Mihomo 订阅**：在 Clash Verge Rev 等使用 Mihomo 内核的客户端中添加远程配置。
-- **Telegram**：先在“Telegram 代理”菜单安装 MTProto，再打开显示的 Telegram 链接。
-
-导出的节点、订阅地址、`clash.yaml` 和二维码保存在：
-
-```text
-/var/lib/personal-vpn-stack/clients
-```
-
-优先使用终端显示的 HTTPS 订阅。订阅地址和二维码包含访问凭据，请勿公开。
-
-## 端口设置
-
-| 用途 | 默认端口 | 公网设置 |
-| --- | --- | --- |
-| CF 节点及 HTTPS 订阅 | 通过 Cloudflare 隧道访问 | 无需开放入站端口 |
-| REALITY | TCP 43526 | 开放防火墙；NAT 机器需映射 |
-| Hy2 | UDP 43526 | 启用后开放防火墙；NAT 机器需映射 |
-| Telegram MTProto | TCP 53528 | 安装后开放防火墙；NAT 机器需映射 |
-| 直连备用订阅 | TCP 43518 | 仅需要直连 HTTP 订阅时开放 |
-
-TCP 与 UDP 可以使用相同端口号。REALITY、直连订阅和 MTProto 的公网 TCP 端口需要各不相同。防火墙与服务商端口映射需自行配置。
-
-NAT 安装示例：将公网 TCP 端口 `50001` 映射到内部 `43526`，公网 UDP 端口 `50002` 映射到内部 `43526`：
-
-```bash
-bash deploy-personal-vpn.sh install --server 你的公网IP --public-port 50001 --hy2-public-port 50002
-```
-
-## 从 sing-box 切回 Xray
-
-将服务器上的脚本替换为本版后，进入 **安装与更新 → 重新安装（保留当前配置）**，或执行：
-
-```bash
-bash deploy-personal-vpn.sh install
-```
-
-仅迁移本脚本托管、带有 `managed-by` 标记且配置有效的安装；不会接管其他脚本部署的服务。迁移保留账号、密钥、端口、Hy2 密码和证书，以及现有 TG 配置与健康监控。检查通过后才删除旧 sing-box 程序和配置；安装失败会尝试恢复文件及服务状态。
-
-迁移前应另存配置和节点文件，迁移后重新查看订阅并在客户端验证。若临时隧道被重建，其域名可能变化。切换核心本身不能保证消除所有 CPU 高占用或外网连接问题。
-
-## Telegram 防护与健康检查
-
-基础节点安装完成后，进入 **Telegram 代理 → 安装 / 更新 TG 代理**。菜单会询问内部 TCP 端口和公网 TCP 端口，更新时默认保留原端口及密钥。
-
-- **自动健康检查**随 TG 安装启用：每 60 秒检查本机 TCP 连通性和监听队列，连续 3 次异常才尝试重启，重启尝试之间至少间隔 10 分钟。手动停止的服务不会被自动拉起。
-- **连接限速防护需要单独安装**：选择“安装 / 配置连接防护”。防护使用 `iptables` 和 `iptables-restore`，仅针对 TG 端口的 SYN 包，默认全端口共享每秒 25 个、突发 100 个的额度，不是每个 IP 单独计数。
-- 防护规则在 TG 服务启动时恢复。规则通过一次提交更新，提交失败保留旧规则；已配置防护但规则应用失败时，会报错并阻止本次 TG 启动。状态页会检查实际入口、限速及丢弃规则，不再仅根据脚本文件存在就显示“已启用”。
-- **自动校时**使用 Chrony；无调时权限或同步失败时，尝试设置 MTProto 的 30 秒时间容差。服务器时间仍需保持准确。
-
-健康检查不验证真实 Telegram 握手，限速也不能保证抵御所有连接洪泛；安装完成后仍需用客户端验证。
-
-## 常用命令
-
-不带参数运行脚本即可打开菜单；也可直接执行：
-
-```bash
-# 查看订阅与节点
-bash deploy-personal-vpn.sh export
-
-# 查看服务状态 / 日志
-bash deploy-personal-vpn.sh status
-bash deploy-personal-vpn.sh logs
-
-# 重启服务，保留正在运行的 Cloudflare 隧道
-bash deploy-personal-vpn.sh restart
-
-# 保留现有配置与账号，更新 Xray 至最新稳定版
-bash deploy-personal-vpn.sh install --xray-version latest
-
-# 安装或更新 TG，NAT 服务器可分别指定内部和公网端口
-bash deploy-personal-vpn.sh mtproto --mtproto-port 53528 --mtproto-public-port 50003
-
-# 单独安装 / 更新 TG 连接防护
-bash deploy-personal-vpn.sh mtproto-protect
-
-# 移除 TG 连接防护（保留 TG 服务）
-bash deploy-personal-vpn.sh mtproto-unprotect
-
-# 查看 TG 链接 / 配置自动校时
-bash deploy-personal-vpn.sh mtproto-info
-bash deploy-personal-vpn.sh time-sync
-
-# 重建临时隧道，并显示新的订阅地址
-bash deploy-personal-vpn.sh restart-tunnel
-
-# 卸载（需要确认）
-bash deploy-personal-vpn.sh uninstall
-```
-
-更多参数：`bash deploy-personal-vpn.sh help`。
-
-## 常见问题
-
-**重启后订阅失效了？**
-
-脚本使用 Cloudflare 临时隧道。服务器重启、手动重建隧道或隧道进程重新启动后，域名可能变化。重新查看订阅，并在客户端替换旧地址。普通“重启服务”会保留正在运行的隧道。
-
-**订阅能导入，但节点连不上？**
-
-先在“状态与日志”查看状态和日志。REALITY 检查 TCP 放行及映射；Hy2 检查 UDP 放行及映射；CF 检查入口设置和服务器到 Cloudflare 的连通性。安装检查通过表示本机服务就绪，客户端连接仍需实际验证。
-
-**Hy2 没有出现在订阅中？**
-
-Hy2 可以关闭；若可选 Hy2 的下载、配置准备或启动失败，脚本会尝试跳过 Hy2 并继续安装其余服务。排查后可在“安装与更新 → 安装 / 调整节点配置”中重新启用。公共配置校验或端口冲突检查失败仍会终止安装。
-
-**Telegram 代理无法连接？**
-
-确认已单独安装 MTProto，检查端口放行和 NAT 映射；服务器时间不准时，可运行“配置自动校时”。在“状态与日志”查看监听队列及防护状态；若显示“已安装但未生效或无法核实”，重新安装连接防护并检查错误。仅更新基础 Xray 服务不会刷新已有的 TG 程序和启动配置，TG 更新需使用对应菜单或 `mtproto` 命令。
-
-**停止和卸载有什么区别？**
-
-停止保留账号和配置，之后可以重新启动。卸载会删除本脚本管理的组件，执行前需要确认。
-
-## 配置与服务位置
-
-| 路径 | 内容 |
-| --- | --- |
-| `/etc/personal-vpn-stack/` | 设置、账号、Xray / Hy2 / TG 配置及证书 |
-| `/usr/local/lib/personal-vpn-stack/` | 核心程序、订阅服务与 TG 防护、健康检查脚本 |
-| `/var/lib/personal-vpn-stack/clients/` | 导出的节点、订阅和二维码 |
-
-systemd 服务：`personal-vpn-stack.service`（Xray）、`personal-vpn-stack-hy2.service`、`personal-vpn-stack-cloudflare.service`、`personal-vpn-stack-subscription.service`、`personal-vpn-stack-mtproto.service`、`personal-vpn-stack-mtproto-health.service`。Alpine 使用对应的 OpenRC 服务名，去掉 `.service` 后缀。
-
-## 本地验证
-
-在 Linux 环境下，准备已核验 SHA-256 的官方 Xray、Hysteria2 二进制，安装 Bash、jq、OpenSSL 及 Python 3.11+，运行：
-
-```bash
-bash -n deploy-personal-vpn.sh
-shellcheck -S warning -s bash deploy-personal-vpn.sh  # 需另行安装 ShellCheck
-XRAY_BINARY=/path/to/xray HYSTERIA_BINARY=/path/to/hysteria \
-  python3 -m unittest discover -s tests -v
-```
-
-测试使用临时目录和模拟服务操作；协议传输使用真实核心。测试环境应允许本机 TCP / UDP 监听。未提供 Xray 路径时，部署测试会跳过，不代表完整验证通过。防火墙和 SELinux 失败场景使用模拟工具，仍需在目标系统验证真实行为。
+验证范围：自动构建与后台测试、本地演示页面及交互。未提供真实服务器，因此未验证 Linux 软件包下载、服务启动、NAT、防火墙和实际代理连接。
