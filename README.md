@@ -12,15 +12,17 @@
 bash <(curl -fsSL https://raw.githubusercontent.com/svendou/xray-console-ui/main/scripts/install.sh)
 ```
 
-安装器会自动识别并安装 Node.js 22.12+ 和基础工具，下载 GitHub Release 的预构建包，校验后解压并启动 systemd 或 OpenRC 服务。服务器不会执行 `npm ci` 或前端构建。首次运行时会提示输入面板密码。
+安装器会自动识别并安装 Node.js 22.12+ 和基础工具，下载 GitHub Release 的最新预构建包，校验后解压并启动 systemd 或 OpenRC 服务。服务器不会执行 `npm ci` 或前端构建。首次运行时会提示输入面板密码。
 
 服务器需要运行 Linux、允许 root 操作并能够访问软件包源和 GitHub。无法识别包管理器的发行版需要手动安装依赖后再运行安装器。
+
+不带参数运行安装命令会显示管理菜单。菜单包含安装、更新、停止、查看部署脚本和查看状态。已安装的面板请选择更新，安装选项会阻止重复部署。
 
 维护者发布新版本时，创建并推送 `v` 开头的 Git 标签。GitHub Actions 会在构建环境完成依赖安装、前端构建和预构建包发布：
 
 ```sh
-git tag v1.0.1
-git push origin v1.0.1
+git tag v0.1.1
+git push origin v0.1.1
 ```
 
 ### 安装开机服务
@@ -32,7 +34,9 @@ cd /opt/xray-console-ui
 sh scripts/setup-panel.sh
 ```
 
-脚本会检查 Linux 和 Node.js 版本，首次运行时设置管理密码，并安装 systemd 或 OpenRC 服务。密码保存在 `/etc/xray-console-ui/password`，默认权限为 root 可读。面板默认只监听 `127.0.0.1:8787`。
+脚本会检查 Linux 和 Node.js 版本，首次运行时设置管理密码，并安装 systemd 或 OpenRC 服务。密码保存在 `/etc/xray-console-ui/password`，默认监听 `0.0.0.0:8787`，可以让服务器面板把公网端口映射到内部 `8787`。
+
+默认启用端口映射直连 HTTP。公网长期使用时请配置 HTTPS 反向代理，并关闭 `PANEL_ALLOW_INSECURE_HTTP`。
 
 查看服务状态：
 
@@ -57,15 +61,15 @@ PANEL_PASSWORD_FILE=/etc/xray-console-ui/password sh scripts/start-panel.sh
 
 关闭当前终端后，前台面板也会停止。长期运行使用 `setup-panel.sh` 安装系统服务。
 
-### SSH 转发访问
+### 端口映射访问
 
-在本地电脑保持以下命令运行：
+服务器面板创建 TCP 端口映射，将公网端口指向服务器内部 `8787`。例如公网 `58787` 映射到内部 `8787`：
 
-```sh
-ssh -N -L 8787:127.0.0.1:8787 root@YOUR_SERVER
+```text
+公网 TCP 58787 → 服务器 TCP 8787
 ```
 
-然后打开 [http://127.0.0.1:8787](http://127.0.0.1:8787)。使用安装面板服务时设置的管理密码登录。进入“安装与部署”，填写服务器公网地址、端口、Cloudflare 入口和 Hy2 选项，确认后由后台执行 `deploy-personal-vpn.sh`。
+然后打开 `http://服务器公网 IP:58787`。使用安装面板服务时设置的管理密码登录。进入“安装与部署”，填写服务器公网地址、端口、Cloudflare 入口和 Hy2 选项，确认后由后台执行 `deploy-personal-vpn.sh`。
 
 公网 IPv4 或域名填写代理服务器地址，不要填写面板访问地址。NAT 端口映射和服务器防火墙需要根据你的服务商配置。
 
@@ -136,8 +140,9 @@ npm run dev
 | `PANEL_PASSWORD_FILE` | 无 | 推荐的密码来源，读取受保护文件 |
 | `PANEL_PASSWORD` | 无 | 可代替密码文件；至少 6 个字符，不要提交到仓库 |
 | `PANEL_USERNAME` | `admin` | 管理账号；演示模式固定使用 `admin` |
-| `PANEL_HOST` | `127.0.0.1` | 监听地址；演示版只允许本机回环 |
+| `PANEL_HOST` | `0.0.0.0` | 监听地址；演示版只允许本机回环 |
 | `PANEL_PORT` | `8787` | 后台与生产静态页面端口 |
+| `PANEL_ALLOW_INSECURE_HTTP` | `1` | 允许端口映射直连 HTTP；配置 HTTPS 后删除 |
 | `PANEL_ORIGIN` | 本机 8787 来源 | HTTPS 对外访问来源；同时放行对应 Host |
 | `PANEL_DATA_DIR` | `.panel-data/live` | 私有任务历史目录；演示为 `.panel-data/demo` |
 | `PANEL_NET_INTERFACE` | 自动选择默认出口 | 指定统计网卡，例如 `eth0`；Linux `/proc/net/dev` 读取 |

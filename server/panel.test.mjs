@@ -62,6 +62,21 @@ test('external bindings reject loopback Host aliases', async () => {
     rmSync(directory, { recursive: true, force: true })
   }
 })
+test('public HTTP mode accepts the mapped host and origin', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'xray-public-http-'))
+  const panel = createPanel({ password: 'test-password-more-than-16', dataDir: directory, bindHost: '0.0.0.0', allowPublicHttp: true, execute: async () => 0 })
+  panel.server.listen(0, '127.0.0.1')
+  await once(panel.server, 'listening')
+  const base = `http://127.0.0.1:${panel.server.address().port}`
+  const headers = { Host: '187.7.197.58:58787', Origin: 'http://187.7.197.58:58787', 'Content-Type': 'application/json' }
+  try {
+    assert.equal((await fetch(`${base}/api/session`, { headers })).status, 200)
+    assert.equal((await fetch(`${base}/api/login`, { method: 'POST', headers, body: JSON.stringify({ username: 'admin', password: 'test-password-more-than-16' }) })).status, 200)
+  } finally {
+    panel.closeStreams(); panel.server.closeAllConnections(); await new Promise(resolve => panel.server.close(resolve))
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
 test('demo updates preserve existing install settings', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'xray-demo-update-'))
   const panel = createPanel({ demo: true, dataDir: directory })

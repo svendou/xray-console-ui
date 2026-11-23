@@ -28,8 +28,11 @@ if [ ! -f /etc/xray-console-ui/password ]; then
 fi
 chmod 600 /etc/xray-console-ui/password
 if [ ! -f /etc/xray-console-ui/panel.env ]; then
-  printf '%s\n' 'PANEL_PASSWORD_FILE=/etc/xray-console-ui/password' > /etc/xray-console-ui/panel.env
+  printf '%s\n' 'PANEL_PASSWORD_FILE=/etc/xray-console-ui/password' 'PANEL_HOST=0.0.0.0' 'PANEL_PORT=8787' 'PANEL_ALLOW_INSECURE_HTTP=1' > /etc/xray-console-ui/panel.env
 fi
+grep -q '^PANEL_HOST=' /etc/xray-console-ui/panel.env || printf '%s\n' 'PANEL_HOST=0.0.0.0' >> /etc/xray-console-ui/panel.env
+grep -q '^PANEL_PORT=' /etc/xray-console-ui/panel.env || printf '%s\n' 'PANEL_PORT=8787' >> /etc/xray-console-ui/panel.env
+grep -q '^PANEL_ALLOW_INSECURE_HTTP=' /etc/xray-console-ui/panel.env || printf '%s\n' 'PANEL_ALLOW_INSECURE_HTTP=1' >> /etc/xray-console-ui/panel.env
 chmod 600 /etc/xray-console-ui/panel.env
 if [ "$INIT" = systemd ]; then
   cat > /etc/systemd/system/xray-console-ui.service <<UNIT
@@ -79,4 +82,4 @@ UNIT
   rc-service xray-console-ui restart
   rc-service xray-console-ui status
 fi
-printf '%s\n' '面板服务已启动，仅监听本机 8787。通过 SSH 转发访问：http://127.0.0.1:8787' '之后在网页点击“安装 / 更新”部署代理。完整说明见 README.md。'
+printf '%s\n' '面板服务已启动，监听 0.0.0.0:8787。服务器面板可将公网端口映射到 8787。' '之后在网页点击“安装 / 更新”部署代理。完整说明见 README.md。'

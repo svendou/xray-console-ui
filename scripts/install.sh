@@ -9,6 +9,7 @@ APP_DIR=${XRAY_CONSOLE_APP_DIR:-/opt/xray-console-ui}
 VERSION=${XRAY_CONSOLE_VERSION:-latest}
 RELEASE_URL=${XRAY_CONSOLE_RELEASE_URL:-}
 RELEASE_BASE_URL=${XRAY_CONSOLE_RELEASE_BASE_URL:-https://github.com/svendou/xray-console-ui/releases/download}
+ACTION=${1:-menu}
 
 die() {
   echo "$1" >&2
@@ -22,6 +23,86 @@ esac
 case "$VERSION" in
   ''|*[!A-Za-z0-9._-]*) die 'XRAY_CONSOLE_VERSION 包含无效字符。' ;;
 esac
+
+panel_exists() {
+  [ -f "$APP_DIR/.xray-console-ui-release" ] || { [ -f "$APP_DIR/package.json" ] && [ -f "$APP_DIR/scripts/setup-panel.sh" ]; }
+}
+
+service_action() {
+  command=$1
+  if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
+    systemctl "$command" xray-console-ui
+  elif command -v rc-service >/dev/null 2>&1; then
+    rc-service xray-console-ui "$command"
+  else
+    die '未找到 systemd 或 OpenRC 服务管理器。'
+  fi
+}
+
+show_deploy_script() {
+  script="$APP_DIR/scripts/deploy-personal-vpn.sh"
+  if [ -f "$script" ]; then
+    if command -v less >/dev/null 2>&1; then less "$script"; else cat "$script"; fi
+    return 0
+  fi
+  command -v curl >/dev/null 2>&1 || die '查看远程脚本需要 curl。'
+  if command -v less >/dev/null 2>&1; then
+    curl -fsSL https://raw.githubusercontent.com/svendou/xray-console-ui/main/scripts/deploy-personal-vpn.sh | less
+  else
+    curl -fsSL https://raw.githubusercontent.com/svendou/xray-console-ui/main/scripts/deploy-personal-vpn.sh
+  fi
+}
+
+show_menu() {
+  echo
+  echo 'Xray Console UI 管理器'
+  echo '1) 安装面板'
+  echo '2) 更新面板'
+  echo '3) 停止面板'
+  echo '4) 查看部署脚本'
+  echo '5) 查看面板状态'
+  echo '0) 退出'
+  printf '请选择：'
+  if [ -t 0 ]; then read -r choice
+  elif [ -r /dev/tty ]; then read -r choice < /dev/tty
+  else die '当前终端不支持交互菜单，请传入 install、update、stop、script 或 status。'
+  fi
+  case "$choice" in
+    1) ACTION=install ;;
+    2) ACTION=update ;;
+    3) ACTION=stop ;;
+    4) ACTION=script ;;
+    5) ACTION=status ;;
+    0) exit 0 ;;
+    *) die '无效选择。' ;;
+  esac
+}
+
+[ "$ACTION" = menu ] && show_menu
+case "$ACTION" in
+  install|update|stop|script|status) ;;
+  *) die '用法：install.sh [install|update|stop|script|status]。' ;;
+esac
+
+if [ "$ACTION" = stop ]; then
+  service_action stop
+  echo 'Xray Console UI 已停止。'
+  exit 0
+fi
+if [ "$ACTION" = status ]; then
+  service_action status
+  exit 0
+fi
+if [ "$ACTION" = script ]; then
+  show_deploy_script
+  exit 0
+fi
+if [ "$ACTION" = install ] && panel_exists; then
+  die "$APP_DIR 已安装，请选择 update 更新面板。"
+fi
+if [ "$ACTION" = update ] && ! panel_exists; then
+  die "$APP_DIR 尚未安装，请选择 install 安装面板。"
+fi
 
 PACKAGE_MANAGER=
 

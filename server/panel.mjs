@@ -51,7 +51,7 @@ async function carrierLatency({ demo, target, nodeId = 'server' }) {
   }))
 }
 
-export function createPanel({ demo = false, username = 'admin', password = '', dataDir, script, origin = '', devOrigin = '', dist = resolve('dist'), execute, bindHost = '127.0.0.1' } = {}) {
+export function createPanel({ demo = false, username = 'admin', password = '', dataDir, script, origin = '', devOrigin = '', dist = resolve('dist'), execute, bindHost = '127.0.0.1', allowPublicHttp = false } = {}) {
   if (demo) password ||= '000000'
   if (!demo && (typeof password !== 'string' || password.length < 6)) throw new Error('请设置至少 6 个字符的 PANEL_PASSWORD。')
   const salt = randomBytes(16)
@@ -186,11 +186,12 @@ export function createPanel({ demo = false, username = 'admin', password = '', d
     response.setHeader('Cache-Control', 'no-store')
     try {
       const host = new URL(`http://${request.headers.host || ''}`).hostname
-      if (!allowedHosts.has(host)) return json(response, 403, { error: '未授权的访问域名，请配置 PANEL_ORIGIN。' })
+      if (!allowedHosts.has(host) && !(externalHost && allowPublicHttp)) return json(response, 403, { error: '未授权的访问域名，请配置 PANEL_ORIGIN。' })
       const path = new URL(request.url, 'http://localhost').pathname
       if (path.startsWith('/api/')) {
         if (!['GET', 'POST'].includes(request.method)) return json(response, 405, { error: '请求方法不支持。' })
-        if (request.method === 'POST' && !acceptedOrigins.has(request.headers.origin)) return json(response, 403, { error: '请求来源不匹配。' })
+        const publicHttpOrigin = allowPublicHttp && externalHost && request.headers.origin?.startsWith('http://')
+        if (request.method === 'POST' && !acceptedOrigins.has(request.headers.origin) && !publicHttpOrigin) return json(response, 403, { error: '请求来源不匹配。' })
         if (path === '/api/session' && request.method === 'GET') return json(response, 200, { authenticated: Boolean(sessionFor(request)), demo })
         if (path === '/api/login' && request.method === 'POST') {
           const key = request.socket.remoteAddress

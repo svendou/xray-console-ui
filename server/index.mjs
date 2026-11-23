@@ -8,16 +8,18 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const demo = process.argv.includes('--demo')
 const host = process.env.PANEL_HOST || '127.0.0.1'
 const port = Number(process.env.PANEL_PORT || 8787)
+const allowPublicHttp = process.env.PANEL_ALLOW_INSECURE_HTTP === '1'
+const origin = process.env.PANEL_ORIGIN || ''
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PANEL_PORT 无效。')
 if (demo && !['127.0.0.1', 'localhost', '::1'].includes(host)) throw new Error('演示模式只能绑定本机回环地址。')
 if (!demo && (process.platform !== 'linux' || process.getuid?.() !== 0)) throw new Error('真实管理需要在 Linux 上以 root 运行；本地体验请使用 npm run dev。')
-if (!['127.0.0.1', 'localhost', '::1'].includes(host) && !process.env.PANEL_ORIGIN?.startsWith('https://')) throw new Error('对外监听必须配置 HTTPS 的 PANEL_ORIGIN。')
+if (!['127.0.0.1', 'localhost', '::1'].includes(host) && !origin.startsWith('https://') && !(allowPublicHttp && (!origin || origin.startsWith('http://')))) throw new Error('对外监听需要 HTTPS 的 PANEL_ORIGIN，或显式启用 PANEL_ALLOW_INSECURE_HTTP=1。')
 const script = resolve(root, 'scripts/deploy-personal-vpn.sh')
 if (!existsSync(script)) throw new Error('缺少 scripts/deploy-personal-vpn.sh。')
 const panel = createPanel({
   demo, username: process.env.PANEL_USERNAME || 'admin', password: process.env.PANEL_PASSWORD_FILE ? readFileSync(process.env.PANEL_PASSWORD_FILE, 'utf8').replace(/\r?\n$/, '') : process.env.PANEL_PASSWORD,
   dataDir: process.env.PANEL_DATA_DIR || resolve(root, '.panel-data', demo ? 'demo' : 'live'),
-  script, origin: process.env.PANEL_ORIGIN, devOrigin: process.env.DEV_FRONTEND_ORIGIN, dist: resolve(root, 'dist'),
+  script, origin, devOrigin: process.env.DEV_FRONTEND_ORIGIN, dist: resolve(root, 'dist'), allowPublicHttp,
   bindHost: host,
 })
 await panel.ready
