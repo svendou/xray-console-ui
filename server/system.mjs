@@ -96,17 +96,34 @@ export async function realServices(settings) {
 }
 export function executeScript(script) {
   const children = new Set()
+  const signalChild = (child, signal) => {
+    if (process.platform !== 'win32') {
+      try { process.kill(-child.pid, signal); return } catch { /* fall back to the direct child */ }
+    }
+    child.kill(signal)
+  }
   const run = (args, append) => new Promise(resolve => {
     const env = { ...process.env, PERSONAL_VPN_INTERACTIVE: '0', TERM: 'dumb' }
     if (args[0] === 'uninstall') env.PERSONAL_VPN_CONFIRM = '1'
     delete env.PANEL_PASSWORD
-    const child = spawn('sh', [script, ...args], { shell: false, env, stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn('sh', [script, ...args], { shell: false, env, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] })
+    const taskTimeout = setTimeout(() => {
+      append('部署脚本运行超过 30 分钟，正在终止。请检查软件源、网络和系统服务后重试。')
+      signalChild(child, 'SIGTERM')
+    }, 30 * 60 * 1000)
+    taskTimeout.unref()
     children.add(child)
     for (const output of [child.stdout, child.stderr]) createInterface({ input: output }).on('line', append)
     child.on('error', e => { append(`无法启动安装脚本：${e.message}`); resolve(1) })
-    child.on('close', code => { children.delete(child); resolve(code ?? 1) })
+    child.on('close', code => { clearTimeout(taskTimeout); children.delete(child); resolve(code ?? 1) })
   })
-  run.stop = () => { for (const child of children) child.kill('SIGTERM') }
+  run.stop = () => {
+    for (const child of children) {
+      signalChild(child, 'SIGTERM')
+      const forceKill = setTimeout(() => { if (child.exitCode === null && child.signalCode === null) signalChild(child, 'SIGKILL') }, 3000)
+      forceKill.unref()
+    }
+  }
   return run
 }
 export function cpuTimes() {

@@ -6,7 +6,9 @@ if [ -z "${BASH_VERSION:-}" ]; then
       printf '%s\n' 'Bash is required. On Alpine run this script as root with sh.' >&2
       exit 1
     fi
-    apk add --no-cache bash || exit 1
+    if command -v timeout >/dev/null 2>&1; then timeout "${PERSONAL_VPN_PACKAGE_TIMEOUT_SECONDS:-600}" apk add --no-cache bash || exit 1
+    else apk add --no-cache bash || exit 1
+    fi
   fi
   exec bash "$0" "$@"
 fi
@@ -566,7 +568,16 @@ REPO
 }
 
 rpm_install() {
-  "$PACKAGE_MANAGER" "${RPM_INSTALL_OPTS[@]}" install -y "$@"
+  run_with_timeout "$PACKAGE_MANAGER" "${RPM_INSTALL_OPTS[@]}" install -y "$@"
+}
+
+run_with_timeout() {
+  local timeout_seconds=${PERSONAL_VPN_PACKAGE_TIMEOUT_SECONDS:-600}
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$timeout_seconds" "$@"
+  else
+    "$@"
+  fi
 }
 
 install_official_jq() {
@@ -604,12 +615,14 @@ apt_refresh() {
     -o Acquire::Retries=2
     -o Acquire::http::No-Cache=true
     -o Acquire::https::No-Cache=true
+    -o Acquire::http::Timeout=30
+    -o Acquire::https::Timeout=30
     -o APT::Update::Error-Mode=any
   )
   if [[ -n $APT_LIST_DIR ]]; then
     options+=(-o "Dir::State::lists=$APT_LIST_DIR" -o Dir::Cache::pkgcache= -o Dir::Cache::srcpkgcache=)
   fi
-  apt-get "${options[@]}" update || return $?
+  run_with_timeout apt-get "${options[@]}" update || return $?
 }
 
 apt_install_once() {
@@ -617,11 +630,13 @@ apt_install_once() {
     -o Acquire::Retries=2
     -o Acquire::http::No-Cache=true
     -o Acquire::https::No-Cache=true
+    -o Acquire::http::Timeout=30
+    -o Acquire::https::Timeout=30
   )
   if [[ -n $APT_LIST_DIR ]]; then
     options+=(-o "Dir::State::lists=$APT_LIST_DIR" -o Dir::Cache::pkgcache= -o Dir::Cache::srcpkgcache=)
   fi
-  DEBIAN_FRONTEND=noninteractive apt-get "${options[@]}" install -y --no-install-recommends --no-upgrade "$@" || return $?
+  DEBIAN_FRONTEND=noninteractive run_with_timeout apt-get "${options[@]}" install -y --no-install-recommends --no-upgrade "$@" || return $?
 }
 
 apt_install_packages() {
@@ -677,10 +692,10 @@ install_dependencies() {
     for cmd in semanage restorecon; do command -v "$cmd" >/dev/null || missing=1; done
   fi
   if ((missing)); then
-    say 'Installing small prerequisite packages.'
+    say "正在安装前置软件包（单次最长 ${PERSONAL_VPN_PACKAGE_TIMEOUT_SECONDS:-600} 秒）。"
     if [[ $PACKAGE_MANAGER == apk ]]; then
-      apk add --no-cache bash ca-certificates curl tar gzip unzip openssl jq setpriv flock \
-        iproute2 shadow coreutils python3
+      run_with_timeout apk add --no-cache bash ca-certificates curl tar gzip unzip openssl jq \
+        util-linux iproute2 shadow coreutils python3
     elif [[ $PACKAGE_MANAGER == dnf || $PACKAGE_MANAGER == yum ]]; then
       rpm_packages=(ca-certificates tar gzip unzip openssl util-linux iproute shadow-utils coreutils glibc-common python3)
       if [[ $DISTRO_MAJOR != 7 ]]; then rpm_packages+=(jq); fi
@@ -705,7 +720,7 @@ install_dependencies() {
   # QR encoding is optional; never enable EPEL just to install it.
   if ! command -v qrencode >/dev/null; then
     case $PACKAGE_MANAGER in
-      apk) apk add --no-cache libqrencode-tools || say 'QR package unavailable; subscription links will still be exported.' ;;
+      apk) run_with_timeout apk add --no-cache libqrencode-tools || say 'QR package unavailable; subscription links will still be exported.' ;;
       dnf|yum) rpm_install qrencode || say 'QR package unavailable; subscription links will still be exported.' ;;
       apt) apt_install_packages qrencode || say 'QR package unavailable; subscription links will still be exported.' ;;
     esac
@@ -2462,7 +2477,7 @@ ensure_iptables() {
   case $PACKAGE_MANAGER in
     apt) apt_install_packages iptables ;;
     dnf|yum) rpm_install iptables ;;
-    apk) apk add --no-cache iptables ;;
+    apk) run_with_timeout apk add --no-cache iptables ;;
   esac
   command -v iptables >/dev/null && command -v iptables-restore >/dev/null || die '未找到 iptables / iptables-restore，无法安装 MTProto 防护。'
 }
@@ -2592,7 +2607,7 @@ configure_time_sync() {
     case $PACKAGE_MANAGER in
       apt) apt_install_packages chrony || die 'Chrony 安装失败，请检查上方的软件源错误。' ;;
       dnf|yum) prepare_legacy_centos_repos; rpm_install chrony ;;
-      apk) apk add --no-cache chrony ;;
+      apk) run_with_timeout apk add --no-cache chrony ;;
     esac
   fi
   command -v chronyd >/dev/null && command -v chronyc >/dev/null || die '未找到 chronyd / chronyc，无法配置自动校时。'

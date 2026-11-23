@@ -28,10 +28,9 @@ panel.server.listen(port, host, () => console.log(`Xray Console UI ${demo ? '[æ¼
 async function shutdown() {
   panel.closeStreams()
   panel.server.close()
-  const deadline = Date.now() + 35000
-  while (panel.jobs.items.some(j => j.state === 'running') && Date.now() < deadline) await new Promise(r => setTimeout(r, 500))
-  if (panel.jobs.items.some(j => j.state === 'running')) panel.stopJobs?.()
-  if (panel.jobs.items.some(j => j.state === 'running')) await new Promise(r => setTimeout(r, 1000))
+  panel.stopJobs?.()
+  const deadline = Date.now() + 10000
+  while (panel.jobs.items.some(j => j.state === 'running') && Date.now() < deadline) await new Promise(r => setTimeout(r, 250))
   process.exit()
 }
 process.on('SIGINT', shutdown)

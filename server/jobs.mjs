@@ -37,12 +37,17 @@ export class Jobs {
       this.save()
       this.changed()
     }
+    const heartbeat = setInterval(() => {
+      if (job.state === 'running') append('部署脚本仍在执行，正在等待系统命令返回…')
+    }, 30000)
+    heartbeat.unref?.()
     this.changed()
     Promise.resolve().then(() => this.execute(args, append)).then(code => {
       job.exitCode = code
       job.state = code === 0 ? 'succeeded' : 'failed'
       append(code === 0 ? '任务完成。' : `任务失败，退出码 ${code}。请查看上方日志，修正后重试。`)
     }).catch(error => { job.state = 'failed'; append(error.message) }).finally(() => {
+      clearInterval(heartbeat)
       job.finishedAt = new Date().toISOString()
       this.save()
       this.changed()
