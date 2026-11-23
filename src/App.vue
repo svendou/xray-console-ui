@@ -4,7 +4,9 @@ import { useRoute } from 'vue-router'
 import { LayoutDashboard, Layers, Cable, ScrollText, Settings2, Rocket, ArrowUpRight, ChevronRight, LogOut, Menu, X, Radio, LoaderCircle, ShieldCheck, BookOpen, Eye, EyeOff } from 'lucide-vue-next'
 import { snapshot, initialize, authenticated, loading, connected, error, notice, activeJob, api, connect, disconnect, time } from './store'
 import type { Snapshot } from './types'
+import packageInfo from '../package.json'
 const route = useRoute()
+const appVersion = `v${packageInfo.version}`
 const menuOpen = ref(false), username = ref('admin'), password = ref('000000'), loginError = ref(''), signingIn = ref(false), reveal = ref(false), helpOpen = ref(false)
 const nav = [
   { path: '/', label: '运行总览', icon: LayoutDashboard },
@@ -56,7 +58,7 @@ onUnmounted(disconnect)
       </div>
     </aside>
     <div class="main-shell">
-      <header class="topbar"><div class="breadcrumb"><button class="icon-button mobile-menu" aria-label="打开导航" :aria-expanded="menuOpen" @click="menuOpen = true"><Menu :size="21" /></button><span>工作空间</span><ChevronRight :size="14" /><strong>{{ route.meta.title }}</strong></div><div class="topbar-right"><span class="live-label" :class="{ disconnected: !connected }"><span class="status-dot" />{{ connected ? '实时连接' : '连接中断' }}</span><span class="topbar-divider" /><span class="version-label">v0.1.5</span><span class="top-avatar">A</span></div></header>
+      <header class="topbar"><div class="breadcrumb"><button class="icon-button mobile-menu" aria-label="打开导航" :aria-expanded="menuOpen" @click="menuOpen = true"><Menu :size="21" /></button><span>工作空间</span><ChevronRight :size="14" /><strong>{{ route.meta.title }}</strong></div><div class="topbar-right"><span class="live-label" :class="{ disconnected: !connected }"><span class="status-dot" />{{ connected ? '实时连接' : '连接中断' }}</span><span class="topbar-divider" /><span class="version-label">{{ appVersion }}</span><span class="top-avatar">A</span></div></header>
       <div v-if="snapshot?.demo" class="demo-banner"><span><Radio :size="16" /><strong>演示模式</strong><span>当前展示模拟服务器，操作不会修改真实环境。</span></span><RouterLink to="/settings">连接真实服务器<ArrowUpRight :size="14" /></RouterLink></div>
       <div v-if="error" class="connection-banner" role="alert">{{ error }}<span v-if="snapshot">最后更新 {{ time(snapshot.updatedAt) }}</span></div>
       <main id="main-content" class="main-content" tabindex="-1"><RouterView v-if="snapshot" /><div v-else class="empty-state"><LoaderCircle class="spin" /><p>正在读取服务器状态…</p><button class="button secondary" @click="initialize">重新连接</button></div></main>
