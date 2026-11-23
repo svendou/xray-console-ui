@@ -59,7 +59,7 @@ async function carrierLatency({ demo, target, nodeId = 'server' }) {
 
 export function createPanel({ demo = false, username = 'admin', password = '', dataDir, script, origin = '', devOrigin = '', dist = resolve('dist'), execute, bindHost = '127.0.0.1', allowPublicHttp = false } = {}) {
   if (demo) password ||= '000000'
-  if (!demo && (typeof password !== 'string' || password.length < 6)) throw new Error('请设置至少 6 个字符的 PANEL_PASSWORD。')
+  if (!demo && (typeof password !== 'string' || password.length < 5)) throw new Error('请设置至少 5 个字符的 PANEL_PASSWORD。')
   const salt = randomBytes(16)
   const passwordHash = scryptSync(password, salt, 64)
   const sessions = new Map(), failures = new Map(), clients = new Map()
