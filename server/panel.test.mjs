@@ -47,6 +47,8 @@ test('demo service update check returns version-gated actions', async () => {
   assert.equal(result.services.xray.available, true)
   assert.equal(result.services.cloudflare.available, true)
   assert.equal(result.services.subscription.available, false)
+  const selected = await checkServiceUpdates([{ id: 'hy2', version: 'v2.13.0' }], true, 'hy2')
+  assert.deepEqual(Object.keys(selected.services), ['hy2'])
 })
 test('external bindings reject loopback Host aliases', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'xray-host-'))

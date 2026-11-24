@@ -166,7 +166,7 @@ export function createPanel({ demo = false, username = 'admin', password = '', d
         publicAddress: await detectPublicAddress(demo),
         uptime: demo ? 86400 * 12 + 3600 * 6 : os.uptime(), cpu, memory,
         totalMemory: demo ? 2 * 1024 ** 3 : os.totalmem(), cores: demo ? 2 : os.cpus().length,
-        settings, services: demo ? servicesFor({ ...settings, xray_version: 'v26.11.9', cloudflared_version: '2026.10.1', hy2_version: 'v2.13.0' }, demoStates, demoStates.mtproto === 'missing' ? null : { port: 53528 }) : await realServices(settings),
+        settings, services: demo ? servicesFor({ ...settings, xray_version: 'v26.11.9', cloudflared_version: '2026.10.1', hy2_version: 'v2.13.0' }, demoStates, demoStates.mtproto === 'missing' ? null : { port: 53528 }, true) : await realServices(settings),
         jobs: jobs.items, history, traffic: traffic.sample(),
         kernel: kernelStatus,
       }
@@ -231,7 +231,11 @@ export function createPanel({ demo = false, username = 'admin', password = '', d
           if (current) { current.kernel = kernelStatus; broadcast() }
           return json(response, 200, kernelStatus)
         }
-        if (path === '/api/service-updates' && request.method === 'GET') return json(response, 200, await checkServiceUpdates(current.services, demo))
+        if (path === '/api/service-updates' && request.method === 'GET') {
+          const serviceId = new URL(request.url, 'http://localhost').searchParams.get('service') || ''
+          if (serviceId && !['xray', 'hy2', 'cloudflare', 'mtproto', 'subscription'].includes(serviceId)) return json(response, 400, { error: '服务标识无效。' })
+          return json(response, 200, await checkServiceUpdates(current.services, demo, serviceId))
+        }
         if (path === '/api/ping' && request.method === 'GET') return json(response, 200, { ok: true, serverTime: new Date().toISOString() })
         if (path === '/api/carrier-latency' && request.method === 'GET') {
           const requestUrl = new URL(request.url, 'http://localhost')

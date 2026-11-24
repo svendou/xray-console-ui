@@ -47,6 +47,32 @@ export function detectPublicAddress(demo = false) {
 function portFor(id, settings, mt) {
   return ({ xray: `TCP ${settings.reality_port}`, cloudflare: `${settings.tunnel_protocol.toUpperCase()}`, hy2: `UDP ${settings.hy2_port}`, subscription: `TCP ${settings.subscription_port}`, mtproto: mt ? `TCP ${mt.port}` : '—' })[id]
 }
+let mtprotoProtectionCache = { key: '', at: 0, value: null }
+function mtprotoProtection(mt, demo = false) {
+  if (!mt) return { state: 'missing', label: '未安装', detail: '安装 Telegram 代理后可启用' }
+  if (demo) return { state: 'enabled', label: '已启用', detail: '每秒 25 个新连接，突发上限 100' }
+  const key = String(mt.port)
+  if (mtprotoProtectionCache.key === key && Date.now() - mtprotoProtectionCache.at < 5000) return mtprotoProtectionCache.value
+  const script = '/usr/local/lib/personal-vpn-stack/mtproto-firewall.sh'
+  let value
+  if (!existsSync(script)) {
+    value = { state: 'missing', label: '未安装', detail: '可在下方安装连接防护' }
+  } else {
+    const check = args => {
+      execFileSync('iptables', args, { stdio: 'ignore', timeout: 1000 })
+    }
+    try {
+      check(['-C', 'INPUT', '-p', 'tcp', '--dport', key, '--syn', '-j', 'PERSONAL_MTPROTO'])
+      check(['-C', 'PERSONAL_MTPROTO', '-m', 'limit', '--limit', '25/second', '--limit-burst', '100', '-j', 'RETURN'])
+      check(['-C', 'PERSONAL_MTPROTO', '-j', 'DROP'])
+      value = { state: 'enabled', label: '已启用', detail: '每秒 25 个新连接，突发上限 100' }
+    } catch {
+      value = { state: 'installed', label: '已安装但未生效', detail: '防护脚本存在，但当前规则未完整加载' }
+    }
+  }
+  mtprotoProtectionCache = { key, at: Date.now(), value }
+  return value
+}
 function mtprotoVersion() {
   if (Date.now() - mtprotoVersionCheckedAt < 30000) return mtprotoVersionCache
   mtprotoVersionCheckedAt = Date.now()
@@ -57,8 +83,12 @@ function mtprotoVersion() {
   } catch { mtprotoVersionCache = '—' }
   return mtprotoVersionCache
 }
-export function servicesFor(settings, states, mt) {
-  return definitions.map(([id, name, description, , version]) => ({ id, name, description, state: states[id] ?? 'missing', port: portFor(id, settings, mt), version: id === 'mtproto' ? (mt?.version || mtprotoVersion()) : (settings[version] || (id === 'subscription' ? 'Python 3' : '—')) }))
+export function servicesFor(settings, states, mt, demo = false) {
+  return definitions.map(([id, name, description, , version]) => {
+    const service = { id, name, description, state: states[id] ?? 'missing', port: portFor(id, settings, mt), version: id === 'mtproto' ? (mt?.version || mtprotoVersion()) : (settings[version] || (id === 'subscription' ? 'Python 3' : '—')) }
+    if (id === 'mtproto') service.protection = mtprotoProtection(mt, demo)
+    return service
+  })
 }
 function releaseVersion(value) {
   const match = String(value || '').match(/\d+(?:\.\d+)+/)
@@ -82,32 +112,37 @@ async function latestRelease(repo, signal) {
     return typeof value.tag_name === 'string' ? value.tag_name : null
   } catch { return null }
 }
-export async function checkServiceUpdates(services, demo = false) {
+export async function checkServiceUpdates(services, demo = false, only = '') {
   const current = Object.fromEntries((services || []).map(service => [service.id, service.version]))
-  if (demo) return {
-    checkedAt: new Date().toISOString(), services: {
+  const repos = { xray: 'XTLS/Xray-core', hy2: 'apernet/hysteria', cloudflare: 'cloudflare/cloudflared', mtproto: '9seconds/mtg' }
+  const ids = only && Object.hasOwn(repos, only) ? [only] : only === 'subscription' ? ['subscription'] : [...Object.keys(repos), 'subscription']
+  const checkedAt = new Date().toISOString()
+  if (demo) {
+    const all = {
       xray: { current: current.xray || '—', latest: 'v26.12.0', available: true, source: '演示数据' },
       hy2: { current: current.hy2 || '—', latest: 'v2.14.0', available: true, source: '演示数据' },
       cloudflare: { current: current.cloudflare || '—', latest: '2026.12.0', available: true, source: '演示数据' },
-      subscription: { current: current.subscription || 'Python 3', latest: null, available: false, source: '订阅内容可手动更新' },
       mtproto: { current: current.mtproto || 'v2.3.0', latest: 'v2.3.0', available: false, source: '演示数据' },
-    },
+      subscription: { current: current.subscription || 'Python 3', latest: null, available: false, source: '订阅内容可手动更新' },
+    }
+    return { checkedAt, services: Object.fromEntries(ids.map(id => [id, all[id]])) }
   }
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 10000)
-  const [xrayTag, hy2Tag, cloudflareTag, mtprotoTag] = await Promise.all([latestRelease('XTLS/Xray-core', controller.signal), latestRelease('apernet/hysteria', controller.signal), latestRelease('cloudflare/cloudflared', controller.signal), latestRelease('9seconds/mtg', controller.signal)])
+  const tags = {}
+  await Promise.all(ids.filter(id => repos[id]).map(async id => { tags[id] = await latestRelease(repos[id], controller.signal) }))
   clearTimeout(timeout)
-  const source = xrayTag || hy2Tag || cloudflareTag || mtprotoTag ? 'GitHub Releases' : '暂时无法连接 GitHub'
-  const xrayLatest = displayRelease(xrayTag), hy2Latest = displayRelease(hy2Tag), cloudflareLatest = displayRelease(cloudflareTag), mtprotoLatest = displayRelease(mtprotoTag)
-  return {
-    checkedAt: new Date().toISOString(), services: {
-      xray: { current: current.xray || '—', latest: xrayLatest, available: newerVersion(xrayLatest, current.xray), source },
-      hy2: { current: current.hy2 || '—', latest: hy2Latest, available: newerVersion(hy2Latest, current.hy2), source },
-      cloudflare: { current: current.cloudflare || '—', latest: cloudflareLatest, available: newerVersion(cloudflareLatest, current.cloudflare), source },
-      mtproto: { current: current.mtproto || '—', latest: mtprotoLatest, available: newerVersion(mtprotoLatest, current.mtproto), source },
-      subscription: { current: current.subscription || 'Python 3', latest: null, available: false, source: '订阅内容可手动更新' },
-    },
+  const source = Object.values(tags).some(Boolean) ? 'GitHub Releases' : '暂时无法连接 GitHub'
+  const result = {}
+  for (const id of ids) {
+    if (id === 'subscription') {
+      result[id] = { current: current[id] || 'Python 3', latest: null, available: false, source: '订阅内容可手动更新' }
+      continue
+    }
+    const latest = displayRelease(tags[id])
+    result[id] = { current: current[id] || '—', latest, available: newerVersion(latest, current[id]), source }
   }
+  return { checkedAt, services: result }
 }
 export async function realServices(settings) {
   const openrc = existsSync('/sbin/openrc') && !existsSync('/run/systemd/system')
@@ -124,7 +159,7 @@ export async function realServices(settings) {
     if (id === 'hy2' && !settings.hy2_enabled) states[id] = 'disabled'
   }))
   const mtText = readText('/etc/personal-vpn-stack/mtproto.json')
-  return servicesFor(settings, states, mtText ? JSON.parse(mtText) : null)
+  return servicesFor(settings, states, mtText ? JSON.parse(mtText) : null, false)
 }
 export function executeScript(script) {
   const children = new Set()

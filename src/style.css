@@ -368,6 +368,14 @@ label.protocol-option { cursor: pointer; }
 .service-update-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
 .service-port-field { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 10px; }
 .service-port-field input { width: 66px; min-height: 28px; padding: 4px 6px; color: var(--text-secondary); background: var(--input-bg); border: 1px solid var(--border-control); border-radius: 5px; font: 10px var(--mono); }
+.service-port-readonly { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; white-space: nowrap; }
+.service-port-readonly strong { color: var(--text-secondary); font-weight: 500; }
+.protection-status { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin: 12px 0 14px; color: var(--muted); font-size: 11px; }
+.protection-status strong { color: var(--text-secondary); font-weight: 600; }
+.protection-status .status-dot { width: 6px; height: 6px; }
+.protection-enabled .status-dot { background: var(--teal); }
+.protection-installed .status-dot { background: var(--amber); }
+.protection-missing .status-dot { background: var(--red); }
 .explanatory-panel { display: flex; gap: 16px; padding: 23px; }
 .explanatory-panel > svg { color: var(--blue-light); margin-top: 4px; }
 .explanatory-panel h2 { font-size: 14px; }

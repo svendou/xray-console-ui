@@ -1,5 +1,6 @@
 export interface Service {
   id: string; name: string; description: string; state: 'running' | 'stopped' | 'missing' | 'disabled' | 'unknown'; version: string; port: string
+  protection?: { state: 'enabled' | 'installed' | 'missing'; label: string; detail: string }
 }
 export interface ServiceUpdate {
   current: string; latest: string | null; available: boolean; source: string
