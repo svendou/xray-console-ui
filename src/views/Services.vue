@@ -52,7 +52,7 @@ function updateLabel(id: string) {
 }
 function updateDisabled(id: string, state: string) {
   const info = updateInfo(id)
-  return !!activeJob || state === 'missing' || updateChecking.value || (!!info?.latest && !info.available)
+  return !!activeJob.value || state === 'missing' || updateChecking.value || (!!info?.latest && !info.available)
 }
 async function handleServiceUpdate(id: string, action: string) {
   const info = updateInfo(id)
