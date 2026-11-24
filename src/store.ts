@@ -33,7 +33,24 @@ export function disconnect() { stream?.close(); stream = undefined; connected.va
 export function connect() {
   disconnect()
   stream = new EventSource('/api/events')
-  stream.onmessage = event => { snapshot.value = JSON.parse(event.data); connected.value = true; error.value = '' }
+  stream.onmessage = event => {
+    const next = JSON.parse(event.data) as Snapshot
+    const previous = snapshot.value
+    for (const job of next.jobs) {
+      const before = previous?.jobs.find(item => item.id === job.id)
+      if (before?.state === 'running' && job.state !== 'running') {
+        const message = job.state === 'succeeded'
+          ? `${job.label}已完成。`
+          : job.state === 'failed'
+            ? `${job.label}失败，请查看任务日志。`
+            : `${job.label}已中断，请查看任务日志。`
+        toast(message)
+      }
+    }
+    snapshot.value = next
+    connected.value = true
+    error.value = ''
+  }
   stream.onerror = () => { connected.value = false; error.value = '实时连接已断开，正在重连。' }
   stream.addEventListener('expired', () => { authenticated.value = false; disconnect() })
 }
