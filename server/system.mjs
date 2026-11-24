@@ -235,6 +235,14 @@ export async function kernelCongestion() {
   const optimizations = optimizationStatus()
   return { current, allowed, qdisc, bbr: allowed.includes('bbr'), qdiscSupported: qdisc !== 'unknown', bbrV3Supported, bbrV3Installed: profile.installed, bbrV3StandardInstalled: profile.standardInstalled, bbrV3MaxInstalled: profile.maxInstalled, bbrV3Profile: profile.profile, bbrV3Active: profile.active, bbrV3ActiveProfile: profile.activeProfile, smartOptimization: optimizations.smartActive, smartOptimizationConfigured: optimizations.smartConfigured, apacTuning: optimizations.apacActive, apacTuningConfigured: optimizations.apacConfigured, crazyMode: optimizations.crazyActive, crazyModeConfigured: optimizations.crazyConfigured, ipv6Disabled: optimizations.ipv6Disabled, distro, source: 'kernel' }
 }
+export function rebootServer(append) {
+  append('[system] 已提交服务器重启，面板连接会暂时中断。')
+  const command = existsSync('/run/systemd/system') ? 'systemctl' : 'reboot'
+  const args = command === 'systemctl' ? ['reboot'] : []
+  const child = spawn(command, args, { detached: true, stdio: 'ignore' })
+  child.unref()
+  return 0
+}
 export async function restartManagedService(id, append) {
   const unit = ({ xray: 'personal-vpn-stack', hy2: 'personal-vpn-stack-hy2' })[id]
   if (!unit) throw new Error('服务标识无效。')

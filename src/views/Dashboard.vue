@@ -7,7 +7,7 @@ import StatusBadge from '../components/StatusBadge.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import NodeStatsList from '../components/NodeStatsList.vue'
 const router = useRouter()
-const confirm = ref(false), paused = ref(false), frozen = ref<typeof snapshot.value>(), testing = ref(false)
+const confirm = ref(false), serverConfirm = ref(false), paused = ref(false), frozen = ref<typeof snapshot.value>(), testing = ref(false)
 const data = computed(() => paused.value ? frozen.value : snapshot.value)
 const trafficUsed = computed(() => snapshot.value?.traffic ? Math.min(100, (snapshot.value.traffic.totalRx + snapshot.value.traffic.totalTx) / snapshot.value.traffic.quotaBytes * 100) : 0)
 const enabled = computed(() => snapshot.value?.services.filter(s => !['missing', 'disabled'].includes(s.state)).length || 0)
@@ -15,12 +15,13 @@ const points = (field: 'cpu' | 'memory') => (data.value?.history || []).map((s, 
 const icons: Record<string, typeof Server> = { xray: Layers, cloudflare: Globe2, hy2: Activity, subscription: Cable, mtproto: ShieldCheck }
 function togglePause() { if (!paused.value) frozen.value = JSON.parse(JSON.stringify(snapshot.value)); paused.value = !paused.value }
 async function restart() { confirm.value = false; await run('restart') }
+async function rebootServer() { serverConfirm.value = false; await run('reboot-server') }
 async function testLatency() { if (testing.value) return; testing.value = true; try { await measureServerLatency() } finally { testing.value = false } }
 onMounted(() => { if (!serverLatency.value) testLatency() })
 </script>
 <template>
   <div v-if="snapshot" class="page dashboard-page">
-    <div class="page-heading"><div><h1>运行总览<span class="heading-status" :class="healthy === enabled && enabled ? 'good' : 'warn'"><span class="status-dot" />{{ healthy === enabled && enabled ? '服务运行正常' : '服务需要关注' }}</span></h1><p>掌握你的连接状态，让每一次部署都清晰可见。</p></div><div class="heading-actions"><button class="button secondary" :disabled="!!activeJob || !snapshot.installed" @click="confirm = true"><RotateCw :size="16" />重启服务</button><RouterLink class="button primary" to="/install"><Plus :size="18" />安装 / 更新</RouterLink></div></div>
+    <div class="page-heading"><div><h1>运行总览<span class="heading-status" :class="healthy === enabled && enabled ? 'good' : 'warn'"><span class="status-dot" />{{ healthy === enabled && enabled ? '服务运行正常' : '服务需要关注' }}</span></h1><p>掌握你的连接状态，让每一次部署都清晰可见。</p></div><div class="heading-actions"><button class="button secondary" :disabled="!!activeJob || !snapshot.installed" @click="confirm = true"><RotateCw :size="16" />重启服务</button><button class="button danger-ghost" :disabled="!!activeJob || !snapshot.installed" @click="serverConfirm = true"><Server :size="16" />重启服务器</button><RouterLink class="button primary" to="/install"><Plus :size="18" />安装 / 更新</RouterLink></div></div>
     <section class="server-strip" aria-label="服务器信息"><span class="server-emblem"><Server :size="25" /></span><div class="server-name"><strong>{{ snapshot.hostname }}</strong><span>{{ snapshot.platform }}</span></div><span class="server-separator" /><div class="server-address"><span>公网地址</span><strong class="mono">{{ snapshot.settings.server || '尚未配置' }}</strong></div><span class="server-separator" /><div class="server-type"><span>部署方式</span><strong>独立服务器 <span class="small-tag">{{ snapshot.demo ? 'DEMO' : 'LOCAL' }}</span></strong></div><RouterLink to="/settings" class="text-link server-details">服务器详情<ArrowUpRight :size="15" /></RouterLink></section>
     <section class="metrics-row" aria-label="服务器资源读数">
       <div class="metric"><div class="metric-label"><Network :size="17" />运行服务</div><div class="metric-number">{{ healthy }}<span>/ {{ enabled }}</span><span class="metric-note good-text"><Check :size="13" />{{ enabled && healthy === enabled ? '全部健康' : '查看服务' }}</span></div><p>已安装服务的本机运行状态</p></div>
@@ -47,6 +48,7 @@ onMounted(() => { if (!serverLatency.value) testLatency() })
       <section class="panel subscription-shortcut"><span class="subscription-symbol"><Cable :size="25" /></span><div><h2>让所有设备，保持连接。</h2><p>获取节点链接和专属订阅，轻松接入你的客户端。</p></div><RouterLink to="/nodes" class="text-link">管理节点与订阅<ArrowUpRight :size="16" /></RouterLink></section>
     </div>
     <div class="overview-note"><ShieldCheck :size="15" />流量统计读取 {{ snapshot.traffic.interface }} 网卡总量，包含 SSH、更新等其他流量；实际节点外网可用性请在客户端验证。</div>
+    <ConfirmDialog :open="serverConfirm" title="确认重启服务器？" message="服务器会立即重启，面板连接和所有代理连接会中断。重启完成后需要等待服务器和面板服务恢复。" confirm-label="确认重启服务器" :danger="true" @close="serverConfirm = false" @confirm="rebootServer" />
     <ConfirmDialog :open="confirm" title="重启代理与订阅？" message="现有代理连接可能短暂中断。运行中的 Cloudflare 隧道将被保留。" confirm-label="确认重启" @close="confirm = false" @confirm="restart" />
   </div>
 </template>

@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve, extname, sep } from 'node:path'
 import os from 'node:os'
 import { Jobs } from './jobs.mjs'
-import { defaults, readSettings, detectPublicAddress, realServices, servicesFor, checkServiceUpdates, cpuTimes, executeScript, executeBbrV3, executeBbrMenu, executeBbrSmart, nodeExports, serviceLogs, nodeStats, nodeDefinitions, kernelCongestion, setKernelCongestion, setKernelQdisc, restartManagedService } from './system.mjs'
+import { defaults, readSettings, detectPublicAddress, realServices, servicesFor, checkServiceUpdates, cpuTimes, executeScript, executeBbrV3, executeBbrMenu, executeBbrSmart, nodeExports, serviceLogs, nodeStats, nodeDefinitions, kernelCongestion, setKernelCongestion, setKernelQdisc, restartManagedService, rebootServer } from './system.mjs'
 import { TrafficMonitor } from './traffic.mjs'
 
 const carrierProbes = [
@@ -114,6 +114,7 @@ export function createPanel({ demo = false, username = 'admin', password = '', d
       if (demo || execute) return scriptExecute(args, append)
       return executeBbrSmart(args[2], Number(args[4]), append)
     }
+    if (args[0] === 'reboot-server') { if (demo) { append('[演示模式] 已模拟服务器重启。'); return 0 } return rebootServer(append) }
     if (args[0] === 'xray-restart' || args[0] === 'hy2-restart') return restartManagedService(args[0].replace('-restart', ''), append)
     if (args[0] === 'set-congestion') {
       if (demo) { append(`[演示模式] 已模拟切换 TCP 拥塞控制：${args[2]}`); demoCongestion = args[2]; return 0 }
