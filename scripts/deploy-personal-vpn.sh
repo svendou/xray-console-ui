@@ -6,14 +6,12 @@ if [ -z "${BASH_VERSION:-}" ]; then
       printf '%s\n' 'Bash is required. On Alpine run this script as root with sh.' >&2
       exit 1
     fi
-    if command -v timeout >/dev/null 2>&1; then timeout "${PERSONAL_VPN_PACKAGE_TIMEOUT_SECONDS:-600}" apk add --no-cache bash || exit 1
-    else apk add --no-cache bash || exit 1
-    fi
+    apk add --no-cache bash || exit 1
   fi
   exec bash "$0" "$@"
 fi
 # Debian/Ubuntu/CentOS 7+ + systemd, or Alpine + OpenRC.
-# Contains no account credentials. Only manages the paths declared below.
+# Contains no account credentials. Third-party BBR tools also manage system paths.
 set -Eeuo pipefail
 umask 077
 
@@ -65,6 +63,7 @@ MT_SELINUX_ADDED=0
 MT_FILES=()
 MT_PROTECT_RATE=25
 MT_PROTECT_BURST=100
+BBR_SYSCTL_FILE=/etc/sysctl.d/99-personal-vpn-bbr.conf
 BLOCKED_CIDRS='["0.0.0.0/8","10.0.0.0/8","100.64.0.0/10","127.0.0.0/8","169.254.0.0/16","172.16.0.0/12","192.168.0.0/16","224.0.0.0/4","240.0.0.0/4","::/128","::1/128","fc00::/7","fe80::/10","ff00::/8"]'
 MANAGED_FILES=()
 PREVIOUS_ENABLED_UNITS=()
@@ -96,11 +95,13 @@ usage() {
   restart-tunnel   重建临时隧道并导出新域名。
 Telegram 代理：
   mtproto          安装 / 更新 Telegram MTProto 代理。
-  mtproto-restart  仅重启 Telegram MTProto 代理及健康监控。
   mtproto-protect  安装 / 更新 MTProto 新连接限速防护。
   mtproto-unprotect 移除本脚本安装的 MTProto 限速防护。
   mtproto-info     查看 MTProto 密钥和 Telegram 链接。
   time-sync        配置 Chrony 校时；失败时启用 MTProto 时间容差。
+BBR 网络加速：
+  bbr              检查内核支持，启用 TCP BBR 并保存开机配置。
+  bbr-v3           打开 byJoey BBR v3 内核管理工具（第三方）。
 服务与诊断：
   status           查看版本、服务、端口和隧道状态。
   logs             查看核心、隧道、订阅和 MTProto 日志。
@@ -138,7 +139,8 @@ Telegram 代理：
 
 直接部署 Xray；更新保留账号、密钥和端口，程序下载并校验后才替换文件。
 安装失败会尝试回滚。临时隧道重建后域名可能变化，请重新导入 HTTPS 订阅。
-请自行配置防火墙和服务商 NAT 映射；脚本不会修改 SSH 和系统网络参数。
+请自行配置防火墙和服务商 NAT 映射；脚本不会修改 SSH。
+bbr 启用系统内核提供的 BBR；bbr-v3 会运行第三方工具，可修改内核及系统设置。
 HELP
 }
 
@@ -227,7 +229,7 @@ interactive_menu() {
     menu_args=()
     menu_interactive=0
     arrow_menu '个人节点管理' '输入编号 / ↑↓ 选择；Enter 确认；0 / q 退出' 0 \
-      '安装与更新' '节点与订阅' 'Telegram 代理' '服务控制' '状态与日志' '卸载全部组件' || return 0
+      '安装与更新' '节点与订阅' 'Telegram 代理' '服务控制' '状态与日志' 'BBR 网络加速' '卸载全部组件' || return 0
     selection=$MENU_SELECTION
     case $selection in
       0)
@@ -249,13 +251,12 @@ interactive_menu() {
           2) menu_args=(restart-tunnel) ;;
         esac ;;
       2)
-        arrow_menu 'Telegram 代理' "$footer" 0 '安装 / 更新 TG 代理' '重启 TG 代理' '查看 TG 代理链接' '安装 / 配置连接防护' '配置自动校时' || continue
+        arrow_menu 'Telegram 代理' "$footer" 0 '安装 / 更新 TG 代理' '查看 TG 代理链接' '安装 / 配置连接防护' '配置自动校时' || continue
         case $MENU_SELECTION in
           0) menu_args=(mtproto); menu_interactive=1 ;;
-          1) menu_args=(mtproto-restart) ;;
-          2) menu_args=(mtproto-info) ;;
-          3) menu_args=(mtproto-protect) ;;
-          4) menu_args=(time-sync) ;;
+          1) menu_args=(mtproto-info) ;;
+          2) menu_args=(mtproto-protect) ;;
+          3) menu_args=(time-sync) ;;
         esac ;;
       3)
         arrow_menu '服务控制' "$footer" 0 '启动全部服务' '重启代理与订阅（保留 CF 隧道）' '停止全部服务' || continue
@@ -270,7 +271,13 @@ interactive_menu() {
           0) menu_args=(status) ;;
           1) menu_args=(logs) ;;
         esac ;;
-      5) menu_args=(uninstall) ;;
+      5)
+        arrow_menu 'BBR 网络加速' "$footer" 0 'BBR' 'BBR V3' || continue
+        case $MENU_SELECTION in
+          0) menu_args=(bbr) ;;
+          1) menu_args=(bbr-v3) ;;
+        esac ;;
+      6) menu_args=(uninstall) ;;
     esac
     # Keep each action isolated so an error returns to the menu.
     if PERSONAL_VPN_INTERACTIVE=$menu_interactive bash "$SCRIPT_PATH" "${menu_args[@]}"; then
@@ -316,7 +323,66 @@ menu_overview() {
   else
     printf '尚未安装，请先进入“安装与更新”。\n'
   fi
+  printf 'TCP 默认拥塞控制：%s\n' "$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || printf '未知')"
   printf '────────────────────────────────────────\n'
+}
+
+enable_bbr() {
+  local available staged
+  command -v sysctl >/dev/null || die '未找到 sysctl，无法配置 BBR。'
+  [[ ! -L $BBR_SYSCTL_FILE && ( ! -e $BBR_SYSCTL_FILE || -f $BBR_SYSCTL_FILE ) ]] || die 'BBR 配置不能是符号链接或目录。'
+  available=$(sysctl -n net.ipv4.tcp_available_congestion_control) || die '无法读取内核支持的 TCP 拥塞控制算法。'
+  if [[ " $available " != *' bbr '* ]]; then
+    command -v modprobe >/dev/null || die '未找到 modprobe；请安装内核模块工具后重试。'
+    modprobe tcp_bbr || die '无法加载 tcp_bbr：请确认内核支持及容器权限；脚本不会更换内核。'
+    available=$(sysctl -n net.ipv4.tcp_available_congestion_control) || die '加载模块后无法读取 TCP 算法。'
+  fi
+  [[ " $available " == *' bbr '* ]] || die '当前内核未提供 BBR，未更改 TCP 配置。'
+  install -d -m 0755 "$(dirname -- "$BBR_SYSCTL_FILE")"
+  staged=$(mktemp "$(dirname -- "$BBR_SYSCTL_FILE")/.personal-vpn-bbr.XXXXXXXX") || die '无法创建 BBR 配置文件。'
+  if ! printf 'net.ipv4.tcp_congestion_control = bbr\n' > "$staged" || ! chmod 0644 "$staged"; then
+    rm -f -- "$staged"
+    die '无法生成 BBR 配置，未更改 TCP 默认算法。'
+  fi
+  if ! sysctl -w net.ipv4.tcp_congestion_control=bbr; then
+    rm -f -- "$staged"
+    die 'BBR 启用失败，原有持久化配置未修改；请检查系统权限。'
+  fi
+  if [[ $(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null) != bbr ]]; then
+    rm -f -- "$staged"
+    die '未确认 BBR 生效，未保存开机配置。'
+  fi
+  if ! mv -f -- "$staged" "$BBR_SYSCTL_FILE"; then
+    rm -f -- "$staged"
+    die 'BBR 当前已启用，但保存开机配置失败。'
+  fi
+  say "TCP BBR 已启用，开机配置已保存到 $BBR_SYSCTL_FILE。"
+  say '新建 TCP 连接使用 BBR；现有连接请断开重连。Hy2 使用 UDP，不受此 TCP 设置直接影响。'
+}
+
+run_bbr_v3() {
+  local url digest cmd
+  [[ -t 0 ]] || die 'BBR v3 工具需要交互终端，请直接运行脚本后选择菜单。'
+  case $DISTRO_ID in
+    debian) ((DISTRO_MAJOR >= 12)) || die 'BBR v3 内核安装要求 Debian 12+。' ;;
+    ubuntu) ((DISTRO_MAJOR >= 24)) || die 'BBR v3 内核安装要求 Ubuntu 24.04+。' ;;
+    *) die '此 BBR v3 项目仅支持 Debian 12+ / Ubuntu 24.04+，不能用于 Alpine 或 RPM 系统。' ;;
+  esac
+  url=https://raw.githubusercontent.com/byJoey/Actions-bbr-v3/2d79899a06bef10e2f72ef0924abf6ebcb16d727/install.sh
+  digest=61702631bb0e8b1bf798e4f3f863a429b5d96f8fd426d7c77554c1699f1a3064
+  say '即将打开 BBR v3 第三方菜单；安装新内核需重启，请保留旧内核并确认可通过 VPS 控制台恢复。'
+  say '工具启动时会写入模块黑名单并尝试卸载 esp4 / esp6 / rxrpc，可能影响 IPsec 等服务。'
+  for cmd in curl sha256sum; do
+    command -v "$cmd" >/dev/null || die "缺少 $cmd，请安装后重试。"
+  done
+  make_workdir
+  say '下载 byJoey/Actions-bbr-v3 固定版本并校验 SHA-256……'
+  curl -fsSL --proto '=https' --retry 2 --connect-timeout 15 --max-time 120 \
+    "$url" -o "$WORK_DIR/bbr-v3.sh" || die '第三方工具下载失败，未执行。'
+  printf '%s  %s\n' "$digest" "$WORK_DIR/bbr-v3.sh" | sha256sum -c - || die '第三方工具 SHA-256 校验失败，未执行。'
+  bash -n "$WORK_DIR/bbr-v3.sh" || die '第三方工具语法检查失败，未执行。'
+  # Keep future launches inside this menu's pinned and verified download path.
+  BBRV3_SKIP_QUICK_COMMAND=1 bash "$WORK_DIR/bbr-v3.sh"
 }
 
 interactive_settings() {
@@ -405,7 +471,6 @@ load_settings() {
     SUB_PUBLIC_PORT=${SUB_PUBLIC_PORT:-$(setting subscription_public_port "$SUB_PORT")}
     HY2_REQUESTED=${HY2_REQUESTED:-$(setting hy2_requested 1)}
     NODE_COUNTRY=${NODE_COUNTRY:-$(setting node_country '')}
-    OUTPUT_DIR=${OUTPUT_DIR:-$(setting output_dir "$DATA_DIR/clients")}
     if [[ $(setting hy2_enabled true) == false ]]; then HY2_ENABLED=0; else HY2_ENABLED=1; fi
   fi
   REALITY_PORT=${REALITY_PORT:-43526}
@@ -568,16 +633,7 @@ REPO
 }
 
 rpm_install() {
-  run_with_timeout "$PACKAGE_MANAGER" "${RPM_INSTALL_OPTS[@]}" install -y "$@"
-}
-
-run_with_timeout() {
-  local timeout_seconds=${PERSONAL_VPN_PACKAGE_TIMEOUT_SECONDS:-600}
-  if command -v timeout >/dev/null 2>&1; then
-    timeout "$timeout_seconds" "$@"
-  else
-    "$@"
-  fi
+  "$PACKAGE_MANAGER" "${RPM_INSTALL_OPTS[@]}" install -y "$@"
 }
 
 install_official_jq() {
@@ -615,14 +671,12 @@ apt_refresh() {
     -o Acquire::Retries=2
     -o Acquire::http::No-Cache=true
     -o Acquire::https::No-Cache=true
-    -o Acquire::http::Timeout=30
-    -o Acquire::https::Timeout=30
     -o APT::Update::Error-Mode=any
   )
   if [[ -n $APT_LIST_DIR ]]; then
     options+=(-o "Dir::State::lists=$APT_LIST_DIR" -o Dir::Cache::pkgcache= -o Dir::Cache::srcpkgcache=)
   fi
-  run_with_timeout apt-get "${options[@]}" update || return $?
+  apt-get "${options[@]}" update || return $?
 }
 
 apt_install_once() {
@@ -630,13 +684,11 @@ apt_install_once() {
     -o Acquire::Retries=2
     -o Acquire::http::No-Cache=true
     -o Acquire::https::No-Cache=true
-    -o Acquire::http::Timeout=30
-    -o Acquire::https::Timeout=30
   )
   if [[ -n $APT_LIST_DIR ]]; then
     options+=(-o "Dir::State::lists=$APT_LIST_DIR" -o Dir::Cache::pkgcache= -o Dir::Cache::srcpkgcache=)
   fi
-  DEBIAN_FRONTEND=noninteractive run_with_timeout apt-get "${options[@]}" install -y --no-install-recommends --no-upgrade "$@" || return $?
+  DEBIAN_FRONTEND=noninteractive apt-get "${options[@]}" install -y --no-install-recommends --no-upgrade "$@" || return $?
 }
 
 apt_install_packages() {
@@ -692,10 +744,10 @@ install_dependencies() {
     for cmd in semanage restorecon; do command -v "$cmd" >/dev/null || missing=1; done
   fi
   if ((missing)); then
-    say "正在安装前置软件包（单次最长 ${PERSONAL_VPN_PACKAGE_TIMEOUT_SECONDS:-600} 秒）。"
+    say 'Installing small prerequisite packages.'
     if [[ $PACKAGE_MANAGER == apk ]]; then
-      run_with_timeout apk add --no-cache bash ca-certificates curl tar gzip unzip openssl jq \
-        util-linux iproute2 shadow coreutils python3
+      apk add --no-cache bash ca-certificates curl tar gzip unzip openssl jq setpriv flock \
+        iproute2 shadow coreutils python3
     elif [[ $PACKAGE_MANAGER == dnf || $PACKAGE_MANAGER == yum ]]; then
       rpm_packages=(ca-certificates tar gzip unzip openssl util-linux iproute shadow-utils coreutils glibc-common python3)
       if [[ $DISTRO_MAJOR != 7 ]]; then rpm_packages+=(jq); fi
@@ -720,7 +772,7 @@ install_dependencies() {
   # QR encoding is optional; never enable EPEL just to install it.
   if ! command -v qrencode >/dev/null; then
     case $PACKAGE_MANAGER in
-      apk) run_with_timeout apk add --no-cache libqrencode-tools || say 'QR package unavailable; subscription links will still be exported.' ;;
+      apk) apk add --no-cache libqrencode-tools || say 'QR package unavailable; subscription links will still be exported.' ;;
       dnf|yum) rpm_install qrencode || say 'QR package unavailable; subscription links will still be exported.' ;;
       apt) apt_install_packages qrencode || say 'QR package unavailable; subscription links will still be exported.' ;;
     esac
@@ -1104,7 +1156,7 @@ detect_node_country() {
 }
 
 write_settings() {
-  jq -n --arg server "$SERVER_ADDR" --arg output "$OUTPUT_DIR" --argjson rp "$REALITY_PORT" --argjson pp "$PUBLIC_PORT" --argjson wp "$WS_PORT" \
+  jq -n --arg server "$SERVER_ADDR" --argjson rp "$REALITY_PORT" --argjson pp "$PUBLIC_PORT" --argjson wp "$WS_PORT" \
     --argjson mp "$METRICS_PORT" --arg sni "$REALITY_SNI" --arg entry "$CF_ENTRY" \
     --arg protocol "$TUNNEL_PROTOCOL" --arg version "$XRAY_VERSION" --arg cv "$CF_VERSION" --arg hv "$HY2_VERSION" \
     --argjson hp "$HY2_PORT" --argjson hpp "$HY2_PUBLIC_PORT" --argjson sp "$SUB_PORT" --argjson spp "$SUB_PUBLIC_PORT" \
@@ -1112,7 +1164,7 @@ write_settings() {
     '{schema:2,core:"xray",xray_version:$version,server:$server,reality_port:$rp,public_port:$pp,
       ws_port:$wp,metrics_port:$mp,reality_sni:$sni,cf_entry:$entry,tunnel_protocol:$protocol,cloudflared_version:$cv,
       hy2_port:$hp,hy2_public_port:$hpp,subscription_port:$sp,subscription_public_port:$spp,
-      node_country:$country,hy2_version:$hv,output_dir:$output,hy2_enabled:($he==1),hy2_requested:$requested}' > "$ETC_DIR/settings.json"
+      node_country:$country,hy2_version:$hv,hy2_enabled:($he==1),hy2_requested:$requested}' > "$ETC_DIR/settings.json"
   chmod 0600 "$ETC_DIR/settings.json"
 }
 
@@ -1290,10 +1342,8 @@ def clash_payload(cfg, domain):
         for index, (key, value) in enumerate(proxy.items()):
             lines.append(("  - " if index == 0 else "    ") + key + ": " +
                          json.dumps(value, ensure_ascii=False))
-    proxy_names = [p["name"] for p in proxies]
-    preferred = [name for name in proxy_names if name.endswith("-REALITY")] + [name for name in proxy_names if not name.endswith("-REALITY")]
     lines.extend(["proxy-groups:", "  - name: PROXY", "    type: select",
-                  "    proxies: " + json.dumps(preferred + ["DIRECT"], ensure_ascii=False),
+                  "    proxies: " + json.dumps([p["name"] for p in proxies] + ["DIRECT"], ensure_ascii=False),
                   "rules:", "  - MATCH,PROXY", ""])
     return "\n".join(lines).encode("utf-8")
 
@@ -1898,12 +1948,8 @@ uninstall_stack() {
     [[ ! -L $file ]] || die "拒绝卸载符号链接目录：$file"
   done
   printf '\n将卸载本脚本的 Cloudflare、REALITY、Hy2、MTProto 和订阅服务，删除程序、账号配置及默认目录中的节点文件。\nSSH、防火墙及手工部署的旧服务不受影响。\n'
-  if [[ ${PERSONAL_VPN_CONFIRM:-0} == 1 ]]; then
-    answer=y
-  else
-    read -r -p '确认卸载？输入 y 继续 [N]：' answer || return 0
-    [[ $answer == y || $answer == Y ]] || { say '已取消卸载。'; return 0; }
-  fi
+  read -r -p '确认卸载？输入 y 继续 [N]：' answer || return 0
+  [[ $answer == y || $answer == Y ]] || { say '已取消卸载。'; return 0; }
   if [[ -f $(service_file "$MT_HEALTH_UNIT") ]]; then
     svc stop "$MT_HEALTH_UNIT"
     svc disable "$MT_HEALTH_UNIT"
@@ -2365,20 +2411,6 @@ show_mtproto() {
   show_mtproto_protection "$(jq -r .port "$ETC_DIR/mtproto.json")"
 }
 
-restart_mtproto() {
-  [[ -r "$ETC_DIR/mtproto.json" ]] || die '请先运行 mtproto 安装 MTProto。'
-  validate_mtproto_file "$ETC_DIR/mtproto.json"
-  local port
-  port=$(jq -r .port "$ETC_DIR/mtproto.json")
-  restart_service "$MT_UNIT"
-  wait_mtproto "$port" || die 'MTProto 重启检查失败，请查看 logs。'
-  if [[ -f $(service_file "$MT_HEALTH_UNIT") ]]; then
-    restart_service "$MT_HEALTH_UNIT"
-    svc is-active "$MT_HEALTH_UNIT" || die 'MTProto 健康监控重启失败。'
-  fi
-  say 'MTProto 已单独重启，其他节点和 Cloudflare 隧道未变更。'
-}
-
 tcp_overflow_counters() {
   [[ -r /proc/net/netstat ]] || return 0
   awk '
@@ -2479,7 +2511,7 @@ ensure_iptables() {
   case $PACKAGE_MANAGER in
     apt) apt_install_packages iptables ;;
     dnf|yum) rpm_install iptables ;;
-    apk) run_with_timeout apk add --no-cache iptables ;;
+    apk) apk add --no-cache iptables ;;
   esac
   command -v iptables >/dev/null && command -v iptables-restore >/dev/null || die '未找到 iptables / iptables-restore，无法安装 MTProto 防护。'
 }
@@ -2609,7 +2641,7 @@ configure_time_sync() {
     case $PACKAGE_MANAGER in
       apt) apt_install_packages chrony || die 'Chrony 安装失败，请检查上方的软件源错误。' ;;
       dnf|yum) prepare_legacy_centos_repos; rpm_install chrony ;;
-      apk) run_with_timeout apk add --no-cache chrony ;;
+      apk) apk add --no-cache chrony ;;
     esac
   fi
   command -v chronyd >/dev/null && command -v chronyc >/dev/null || die '未找到 chronyd / chronyc，无法配置自动校时。'
@@ -2766,9 +2798,11 @@ main() {
   case $command_name in
     install) install_stack ;;
     time-sync) configure_time_sync ;;
+    bbr) enable_bbr ;;
+    bbr-v3) run_bbr_v3 ;;
     uninstall) uninstall_stack ;;
-    mtproto|mtproto-restart|mtproto-protect|mtproto-unprotect|mtproto-info|export|status|logs|start|restart|restart-tunnel|set-entry|stop)
-      if [[ $command_name == mtproto || $command_name == mtproto-restart || $command_name == mtproto-protect || $command_name == mtproto-unprotect || $command_name == mtproto-info ]]; then
+    mtproto|mtproto-protect|mtproto-unprotect|mtproto-info|export|status|logs|start|restart|restart-tunnel|set-entry|stop)
+      if [[ $command_name == mtproto || $command_name == mtproto-protect || $command_name == mtproto-unprotect || $command_name == mtproto-info ]]; then
         [[ -r "$ETC_DIR/managed-by" ]] || die '请先选择“安装与更新”，完成后再安装 MTProto。'
       fi
       need_installation
@@ -2778,7 +2812,6 @@ main() {
       case $command_name in status|logs|stop) ;; *) validate_settings ;; esac
       case $command_name in
         mtproto) install_mtproto ;;
-        mtproto-restart) restart_mtproto ;;
         mtproto-protect) install_mtproto_protection ;;
         mtproto-unprotect) remove_mtproto_protection ;;
         mtproto-info) show_mtproto ;;

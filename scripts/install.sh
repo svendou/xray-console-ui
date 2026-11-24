@@ -54,38 +54,127 @@ show_deploy_script() {
   fi
 }
 
-show_menu() {
-  echo
-  echo 'Xray Console UI 管理器'
-  echo '1) 安装面板'
-  echo '2) 更新面板'
-  echo '3) 停止面板'
-  echo '4) 查看部署脚本'
-  echo '5) 查看面板状态'
-  echo '6) 卸载面板'
-  echo '0) 退出'
-  printf '请选择：'
-  if [ -t 0 ]; then read -r choice
-  elif [ -r /dev/tty ]; then read -r choice < /dev/tty
-  else die '当前终端不支持交互菜单，请传入 install、update、stop、script、status 或 uninstall。'
+run_deploy_script() {
+  script="$APP_DIR/scripts/deploy-personal-vpn.sh"
+  temporary=''
+  if [ ! -f "$script" ]; then
+    command -v curl >/dev/null 2>&1 || die '无图形化安装需要 curl。'
+    temporary=$(mktemp)
+    script="$temporary"
+    curl -fsSL https://raw.githubusercontent.com/svendou/xray-console-ui/main/scripts/deploy-personal-vpn.sh -o "$script" ||
+      { rm -f "$temporary"; die '部署脚本下载失败。'; }
+    chmod 700 "$script"
   fi
-  case "$choice" in
-    1) ACTION=install ;;
-    2) ACTION=update ;;
-    3) ACTION=stop ;;
-    4) ACTION=script ;;
-    5) ACTION=status ;;
-    6) ACTION=uninstall ;;
-    0) exit 0 ;;
-    *) die '无效选择。' ;;
+  if bash "$script"; then
+    result=0
+  else
+    result=$?
+  fi
+  [ -n "$temporary" ] && rm -f "$temporary"
+  return "$result"
+}
+
+menu_tty=/dev/tty
+menu_stty=''
+menu_restore() {
+  if [ -n "$menu_stty" ]; then
+    stty "$menu_stty" < "$menu_tty" 2>/dev/null || true
+    menu_stty=''
+  fi
+}
+arrow_menu() {
+  menu_title=$1
+  shift
+  [ -r "$menu_tty" ] || die '当前终端不支持上下键菜单，请传入命令参数。'
+  menu_stty=$(stty -g < "$menu_tty") || die '无法读取终端状态。'
+  stty -icanon -echo < "$menu_tty" || die '无法启用上下键菜单。'
+  trap 'menu_restore; exit 130' INT TERM HUP
+  menu_index=0
+  menu_count=$#
+  while :; do
+    printf '%s[2J%s[H' "$(printf '')" "$(printf '')"
+    printf '%s
+
+' "$menu_title"
+    menu_item_index=0
+    for menu_item do
+      if [ "$menu_item_index" -eq "$menu_index" ]; then
+        printf '  %s[36m> %s%s[0m
+' "$(printf '')" "$menu_item" "$(printf '')"
+      else
+        printf '    %s
+' "$menu_item"
+      fi
+      menu_item_index=$((menu_item_index + 1))
+    done
+    printf '
+↑/↓ 选择，Enter 确认，q 退出
+'
+    menu_key=$(dd if="$menu_tty" bs=1 count=1 2>/dev/null || true)
+    case "$menu_key" in
+      ''|$(printf '
+')|$(printf '
+'))
+        MENU_SELECTION=$menu_index
+        menu_restore
+        trap - INT TERM HUP
+        return 0
+        ;;
+      q|Q)
+        menu_restore
+        trap - INT TERM HUP
+        return 1
+        ;;
+      k|K)
+        menu_index=$(( (menu_index + menu_count - 1) % menu_count ))
+        ;;
+      j|J)
+        menu_index=$(( (menu_index + 1) % menu_count ))
+        ;;
+      "$(printf '')")
+        menu_sequence=$(dd if="$menu_tty" bs=1 count=2 2>/dev/null || true)
+        case "$menu_sequence" in
+          '[A'|OA) menu_index=$(( (menu_index + menu_count - 1) % menu_count )) ;;
+          '[B'|OB) menu_index=$(( (menu_index + 1) % menu_count )) ;;
+        esac
+        ;;
+    esac
+  done
+}
+
+show_panel_menu() {
+  arrow_menu 'Xray Console UI 面板管理'     '安装面板'     '更新面板'     '停止面板'     '查看部署脚本'     '查看面板状态'     '卸载面板'     '返回上一级' || exit 0
+  case "$MENU_SELECTION" in
+    0) ACTION=install ;;
+    1) ACTION=update ;;
+    2) ACTION=stop ;;
+    3) ACTION=script ;;
+    4) ACTION=status ;;
+    5) ACTION=uninstall ;;
+    6) show_menu ;;
   esac
 }
 
+show_menu() {
+  arrow_menu 'Xray Console UI 安装器'     '无图形化安装（使用 deploy-personal-vpn.sh）'     'Xray Console UI 面板管理'     '退出' || exit 0
+  case "$MENU_SELECTION" in
+    0) ACTION=deploy ;;
+    1) show_panel_menu ;;
+    2) exit 0 ;;
+  esac
+}
+
+
 [ "$ACTION" = menu ] && show_menu
 case "$ACTION" in
-  install|update|stop|script|status|uninstall) ;;
-  *) die '用法：install.sh [install|update|stop|script|status|uninstall]。' ;;
+  deploy|install|update|stop|script|status|uninstall) ;;
+  *) die '用法：install.sh [deploy|install|update|stop|script|status|uninstall]。' ;;
 esac
+
+if [ "$ACTION" = deploy ]; then
+  run_deploy_script
+  exit $?
+fi
 
 if [ "$ACTION" = stop ]; then
   service_action stop

@@ -18,6 +18,13 @@ bash <(curl -fsSL https://raw.githubusercontent.com/svendou/xray-console-ui/main
 
 不带参数运行安装命令会显示管理菜单。选择卸载面板会移除面板服务、面板文件和面板密码，代理节点组件与手工部署的服务不受影响。菜单包含安装、更新、停止、查看部署脚本、查看状态和卸载面板。已安装的面板请选择更新，安装选项会阻止重复部署。
 
+启动菜单使用 ↑ / ↓ 和 Enter 选择：
+
+- **无图形化安装**：直接运行仓库中的 `scripts/deploy-personal-vpn.sh`，使用原脚本的终端菜单部署代理节点。
+- **Xray Console UI 面板管理**：进入面板安装、更新、停止、状态查看、脚本查看和卸载菜单。
+
+也可以直接执行 `bash <(curl -fsSL https://raw.githubusercontent.com/svendou/xray-console-ui/main/scripts/install.sh) deploy` 进入无图形化安装。
+
 维护者发布新版本时，创建并推送 `v` 开头的 Git 标签。GitHub Actions 会在构建环境完成依赖安装、前端构建和预构建包发布：
 
 ```sh
