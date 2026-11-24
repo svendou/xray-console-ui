@@ -48,7 +48,7 @@ onUnmounted(disconnect)
     <a class="skip-link" href="#main-content">跳到主要内容</a>
     <button v-if="menuOpen" class="sidebar-scrim" aria-label="关闭导航" @click="menuOpen = false" />
     <aside class="sidebar" :class="{ 'is-open': menuOpen }">
-      <RouterLink to="/" class="brand" aria-label="Xray Console UI 首页" @click="menuOpen = false"><img src="/favicon.svg" alt="" /><span>xray<span class="brand-period">.</span></span><span class="edition">CONSOLE UI</span></RouterLink>
+      <RouterLink to="/" class="brand" aria-label="Xray Console UI 首页" @click="menuOpen = false"><img src="/favicon.svg" alt="" /><span>xray<span class="brand-period">.</span></span></RouterLink>
       <p class="nav-label">工作空间</p>
       <nav aria-label="主要导航"><RouterLink v-for="item in nav" :key="item.path" :to="item.path" class="nav-item" :class="{ active: route.path === item.path }" @click="menuOpen = false"><component :is="item.icon" :size="19" /><span>{{ item.label }}</span><span v-if="item.path === '/logs' && activeJob" class="nav-live" /></RouterLink></nav>
       <div class="sidebar-bottom">
