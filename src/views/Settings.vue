@@ -55,11 +55,11 @@ function isKernelAvailable(item: typeof kernelMenu[number]) {
 }
 function isKernelActive(item: typeof kernelMenu[number]) {
   const kernel = snapshot.value?.kernel
-  return (item.action === 'congestion' && kernel?.current === item.value) || (item.action === 'qdisc' && kernel?.qdisc === item.value) || (item.id === 'bbr-standard' && kernel?.bbrV3Active && kernel.bbrV3ActiveProfile === 'standard') || (item.id === 'bbr-max' && kernel?.bbrV3Active && kernel.bbrV3ActiveProfile === 'max') || (item.id === 'bandwidth' && kernel?.smartOptimization === true) || (item.id === 'tcp' && kernel?.apacTuning === true) || (item.id === 'crazy' && kernel?.crazyMode === true) || (item.id === 'tcp' && kernel?.apacTuning === true) || (item.id === 'crazy' && kernel?.crazyMode === true) || (item.id === 'ipv6-off' && kernel?.ipv6Disabled === true) || (item.id === 'ipv6-on' && kernel?.ipv6Disabled === false)
+  return (item.action === 'congestion' && kernel?.current === item.value) || (item.action === 'qdisc' && kernel?.qdisc === item.value) || (item.id === 'bbr-standard' && kernel?.bbrV3Active && kernel.bbrV3ActiveProfile === 'standard') || (item.id === 'bbr-max' && kernel?.bbrV3Active && kernel.bbrV3ActiveProfile === 'max') || (item.id === 'bandwidth' && kernel?.smartOptimization === true) || (item.id === 'tcp' && kernel?.apacTuning === true) || (item.id === 'crazy' && kernel?.crazyMode === true) || (item.id === 'ipv6-off' && kernel?.ipv6Disabled === true) || (item.id === 'ipv6-on' && kernel?.ipv6Disabled === false)
 }
 function isKernelInstalled(item: typeof kernelMenu[number]) {
   const kernel = snapshot.value?.kernel
-  return (item.id === 'bbr-standard' && kernel?.bbrV3StandardInstalled === true) || (item.id === 'bbr-max' && kernel?.bbrV3MaxInstalled === true) || (item.id === 'bandwidth' && kernel?.smartOptimization === true)
+  return (item.id === 'bbr-standard' && kernel?.bbrV3StandardInstalled === true) || (item.id === 'bbr-max' && kernel?.bbrV3MaxInstalled === true) || (item.id === 'bandwidth' && kernel?.smartOptimizationConfigured === true) || (item.id === 'tcp' && kernel?.apacTuningConfigured === true) || (item.id === 'crazy' && kernel?.crazyModeConfigured === true)
 }
 async function applyKernelMenu(item: typeof kernelMenu[number]) {
   kernelConfirm.value = undefined

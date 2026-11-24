@@ -214,13 +214,16 @@ function managedKernelProfile() {
 }
 function optimizationStatus() {
   const config = readText('/etc/sysctl.d/99-joeyblog.conf')
+  const value = key => readText(`/proc/sys/${key.replaceAll('.', '/')}`)
+  const current = { congestion: value('net.ipv4.tcp_congestion_control'), qdisc: value('net.core.default_qdisc'), wmem: value('net.ipv4.tcp_wmem'), rmem: value('net.ipv4.tcp_rmem'), limit: value('net.ipv4.tcp_limit_output_bytes'), idle: value('net.ipv4.tcp_slow_start_after_idle'), backlog: value('net.core.netdev_max_backlog'), optmem: value('net.core.optmem_max'), somaxconn: value('net.core.somaxconn'), notsent: value('net.ipv4.tcp_notsent_lowat'), autocorking: value('net.ipv4.tcp_autocorking'), metrics: value('net.ipv4.tcp_no_metrics_save'), mtu: value('net.ipv4.tcp_mtu_probing'), fastopen: value('net.ipv4.tcp_fastopen'), scaling: value('net.ipv4.tcp_window_scaling'), moderate: value('net.ipv4.tcp_moderate_rcvbuf'), ecn: value('net.ipv4.tcp_ecn') }
   const ipv6Disabled = readText('/proc/sys/net/ipv6/conf/all/disable_ipv6') === '1'
-  return {
-    smart: config.includes('net.ipv4.tcp_limit_output_bytes = 4194304') && config.includes('net.ipv4.tcp_slow_start_after_idle = 0'),
-    apac: config.includes('net.ipv4.tcp_wmem = 4096 16384 12582912') && config.includes('net.ipv4.tcp_rmem = 4096 131072 33554432'),
-    crazy: config.includes('net.core.netdev_max_backlog = 1000000') && config.includes('net.ipv4.tcp_limit_output_bytes = 268435456'),
-    ipv6Disabled,
-  }
+  const smartConfigured = config.includes('net.ipv4.tcp_limit_output_bytes = 4194304') && config.includes('net.ipv4.tcp_slow_start_after_idle = 0')
+  const apacConfigured = config.includes('net.ipv4.tcp_wmem = 4096 16384 12582912') && config.includes('net.ipv4.tcp_rmem = 4096 131072 33554432')
+  const crazyConfigured = config.includes('net.core.netdev_max_backlog = 1000000') && config.includes('net.ipv4.tcp_limit_output_bytes = 268435456')
+  const smartActive = current.congestion === 'bbr' && current.qdisc === 'fq' && current.wmem === '4096 65536 33554432' && current.rmem === '4096 87380 33554432' && current.limit === '4194304' && current.idle === '0'
+  const apacActive = current.wmem === '4096 16384 12582912' && current.rmem === '4096 131072 33554432' && current.limit === '4194304' && current.idle === '0'
+  const crazyActive = current.congestion === 'bbr' && current.qdisc === 'fq' && current.wmem === '4096 1048576 1073741824' && current.rmem === '4096 1048576 1073741824' && current.limit === '268435456' && current.idle === '0' && current.backlog === '1000000'
+  return { smartActive, smartConfigured, apacActive, apacConfigured, crazyActive, crazyConfigured, ipv6Disabled }
 }
 export async function kernelCongestion() {
   const current = readText('/proc/sys/net/ipv4/tcp_congestion_control') || 'unknown'
@@ -230,7 +233,7 @@ export async function kernelCongestion() {
   const bbrV3Supported = isBbrV3Supported()
   const profile = managedKernelProfile()
   const optimizations = optimizationStatus()
-  return { current, allowed, qdisc, bbr: allowed.includes('bbr'), qdiscSupported: qdisc !== 'unknown', bbrV3Supported, bbrV3Installed: profile.installed, bbrV3StandardInstalled: profile.standardInstalled, bbrV3MaxInstalled: profile.maxInstalled, bbrV3Profile: profile.profile, bbrV3Active: profile.active, bbrV3ActiveProfile: profile.activeProfile, smartOptimization: optimizations.smart, apacTuning: optimizations.apac, crazyMode: optimizations.crazy, ipv6Disabled: optimizations.ipv6Disabled, distro, source: 'kernel' }
+  return { current, allowed, qdisc, bbr: allowed.includes('bbr'), qdiscSupported: qdisc !== 'unknown', bbrV3Supported, bbrV3Installed: profile.installed, bbrV3StandardInstalled: profile.standardInstalled, bbrV3MaxInstalled: profile.maxInstalled, bbrV3Profile: profile.profile, bbrV3Active: profile.active, bbrV3ActiveProfile: profile.activeProfile, smartOptimization: optimizations.smartActive, smartOptimizationConfigured: optimizations.smartConfigured, apacTuning: optimizations.apacActive, apacTuningConfigured: optimizations.apacConfigured, crazyMode: optimizations.crazyActive, crazyModeConfigured: optimizations.crazyConfigured, ipv6Disabled: optimizations.ipv6Disabled, distro, source: 'kernel' }
 }
 export async function restartManagedService(id, append) {
   const unit = ({ xray: 'personal-vpn-stack', hy2: 'personal-vpn-stack-hy2' })[id]
