@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve, extname, sep } from 'node:path'
 import os from 'node:os'
 import { Jobs } from './jobs.mjs'
-import { defaults, readSettings, detectPublicAddress, realServices, servicesFor, checkServiceUpdates, cpuTimes, executeScript, executeBbrV3, executeBbrMenu, executeBbrSmart, nodeExports, serviceLogs, nodeStats, nodeDefinitions, kernelCongestion, setKernelCongestion, setKernelQdisc, restartManagedService, rebootServer } from './system.mjs'
+import { defaults, readSettings, detectPublicAddress, realServices, servicesFor, timeSyncStatus, checkServiceUpdates, cpuTimes, executeScript, executeBbrV3, executeBbrMenu, executeBbrSmart, nodeExports, serviceLogs, nodeStats, nodeDefinitions, kernelCongestion, setKernelCongestion, setKernelQdisc, restartManagedService, rebootServer } from './system.mjs'
 import { TrafficMonitor } from './traffic.mjs'
 
 const carrierProbes = [
@@ -167,7 +167,7 @@ export function createPanel({ demo = false, username = 'admin', password = '', d
         uptime: demo ? 86400 * 12 + 3600 * 6 : os.uptime(), cpu, memory,
         totalMemory: demo ? 2 * 1024 ** 3 : os.totalmem(), cores: demo ? 2 : os.cpus().length,
         settings, services: demo ? servicesFor({ ...settings, xray_version: 'v26.11.9', cloudflared_version: '2026.10.1', hy2_version: 'v2.13.0' }, demoStates, demoStates.mtproto === 'missing' ? null : { port: 53528 }, true) : await realServices(settings),
-        jobs: jobs.items, history, traffic: traffic.sample(),
+        jobs: jobs.items, timeSync: timeSyncStatus(demo), history, traffic: traffic.sample(),
         kernel: kernelStatus,
       }
       current.nodeStats = nodeStats({ settings, services: current.services, demo, dataDir, traffic: current.traffic })

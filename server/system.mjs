@@ -73,6 +73,22 @@ function mtprotoProtection(mt, demo = false) {
   mtprotoProtectionCache = { key, at: Date.now(), value }
   return value
 }
+export function timeSyncStatus(demo = false) {
+  if (demo) return { state: 'synced', label: '已配置', detail: 'Chrony 自动校时已启用' }
+  const fallback = '/var/lib/personal-vpn-stack/mtproto-time-skewness'
+  if (existsSync(fallback)) return { state: 'fallback', label: '已配置兼容模式', detail: '宿主机时间由服务商维护，MTProto 使用 30 秒时间容差' }
+  for (const unit of ['chrony.service', 'chronyd.service']) {
+    try {
+      execFileSync('systemctl', ['is-active', '--quiet', unit], { stdio: 'ignore', timeout: 1000 })
+      try {
+        const tracking = execFileSync('chronyc', ['tracking'], { encoding: 'utf8', timeout: 1500, stdio: ['ignore', 'pipe', 'ignore'] })
+        if (/Leap status\s*:\s*Normal/i.test(tracking)) return { state: 'synced', label: '已配置', detail: 'Chrony 自动校时已启用并同步正常' }
+      } catch { /* service is active but sync status is not readable */ }
+      return { state: 'configured', label: '已配置', detail: 'Chrony 已启用，正在等待同步状态' }
+    } catch { /* try the next distribution unit */ }
+  }
+  return { state: 'missing', label: '未配置', detail: '点击下方按钮配置自动校时' }
+}
 function mtprotoVersion() {
   if (Date.now() - mtprotoVersionCheckedAt < 30000) return mtprotoVersionCache
   mtprotoVersionCheckedAt = Date.now()
