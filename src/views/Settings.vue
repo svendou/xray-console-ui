@@ -59,7 +59,7 @@ function isKernelActive(item: typeof kernelMenu[number]) {
 }
 function isKernelInstalled(item: typeof kernelMenu[number]) {
   const kernel = snapshot.value?.kernel
-  return (item.id === 'bbr-standard' && kernel?.bbrV3Installed && kernel.bbrV3Profile === 'standard') || (item.id === 'bbr-max' && kernel?.bbrV3Installed && kernel.bbrV3Profile === 'max') || (item.id === 'bandwidth' && kernel?.smartOptimization === true)
+  return (item.id === 'bbr-standard' && kernel?.bbrV3StandardInstalled === true) || (item.id === 'bbr-max' && kernel?.bbrV3MaxInstalled === true) || (item.id === 'bandwidth' && kernel?.smartOptimization === true)
 }
 async function applyKernelMenu(item: typeof kernelMenu[number]) {
   kernelConfirm.value = undefined

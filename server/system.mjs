@@ -209,8 +209,8 @@ function managedKernelProfile() {
     const kernels = packages.filter(value => /linux-image-.*-joeyblog-bbrv3(?:-max)?$/.test(value))
     const active = `linux-image-${os.release()}-joeyblog-bbrv3`
     const activeMax = `linux-image-${os.release()}-joeyblog-bbrv3-max`
-    return { installed: kernels.length > 0, profile: kernels.some(value => value.endsWith('-max')) ? 'max' : kernels.length ? 'standard' : null, active: kernels.includes(active) || kernels.includes(activeMax), activeProfile: kernels.includes(activeMax) ? 'max' : kernels.includes(active) ? 'standard' : null }
-  } catch { return { installed: false, profile: null, active: false, activeProfile: null } }
+    return { installed: kernels.length > 0, standardInstalled: kernels.some(value => /-joeyblog-bbrv3$/.test(value)), maxInstalled: kernels.some(value => value.endsWith('-max')), profile: kernels.some(value => value.endsWith('-max')) ? 'max' : kernels.length ? 'standard' : null, active: kernels.includes(active) || kernels.includes(activeMax), activeProfile: kernels.includes(activeMax) ? 'max' : kernels.includes(active) ? 'standard' : null }
+  } catch { return { installed: false, standardInstalled: false, maxInstalled: false, profile: null, active: false, activeProfile: null } }
 }
 function optimizationStatus() {
   const config = readText('/etc/sysctl.d/99-joeyblog.conf')
@@ -230,7 +230,7 @@ export async function kernelCongestion() {
   const bbrV3Supported = isBbrV3Supported()
   const profile = managedKernelProfile()
   const optimizations = optimizationStatus()
-  return { current, allowed, qdisc, bbr: allowed.includes('bbr'), qdiscSupported: qdisc !== 'unknown', bbrV3Supported, bbrV3Installed: profile.installed, bbrV3Profile: profile.profile, bbrV3Active: profile.active, bbrV3ActiveProfile: profile.activeProfile, smartOptimization: optimizations.smart, apacTuning: optimizations.apac, crazyMode: optimizations.crazy, ipv6Disabled: optimizations.ipv6Disabled, distro, source: 'kernel' }
+  return { current, allowed, qdisc, bbr: allowed.includes('bbr'), qdiscSupported: qdisc !== 'unknown', bbrV3Supported, bbrV3Installed: profile.installed, bbrV3StandardInstalled: profile.standardInstalled, bbrV3MaxInstalled: profile.maxInstalled, bbrV3Profile: profile.profile, bbrV3Active: profile.active, bbrV3ActiveProfile: profile.activeProfile, smartOptimization: optimizations.smart, apacTuning: optimizations.apac, crazyMode: optimizations.crazy, ipv6Disabled: optimizations.ipv6Disabled, distro, source: 'kernel' }
 }
 export async function restartManagedService(id, append) {
   const unit = ({ xray: 'personal-vpn-stack', hy2: 'personal-vpn-stack-hy2' })[id]
