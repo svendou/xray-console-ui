@@ -143,8 +143,8 @@ export function createPanel({ demo = false, username = 'admin', password = '', d
     const payload = JSON.stringify({ ...current, jobs: jobs.items })
     for (const [client, token] of clients) {
       if (!sessions.has(token) || sessions.get(token) <= Date.now()) { client.write('event: expired\ndata: {}\n\n'); client.end(); clients.delete(client); continue }
-      // Drop slow clients instead of buffering unbounded task output.
-      if (!client.write(`data: ${payload}\n\n`)) { client.end(); clients.delete(client) }
+      // Respect socket backpressure without closing healthy SSE clients.
+      if (!client.writableNeedDrain) client.write(`data: ${payload}\n\n`)
     }
   }
   async function collect() {
