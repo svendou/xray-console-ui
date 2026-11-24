@@ -286,8 +286,13 @@ async function executePinnedBbrScript(input, label, append) {
         env: { ...process.env, BBRV3_SKIP_QUICK_COMMAND: '1', BBRV3_PANEL_MODE: input.startsWith('10\n') ? '1' : '0', TERM: 'xterm' },
         stdio: ['pipe', 'pipe', 'pipe'],
       })
+      const filterMenuNoise = line => /^\s*(?:[1-9]|1[0-4])[.)]\s/.test(line) && /(启用 BBR \+|亚太机器 TCP|卸载 BBR 内核|BBR v3 智能|BBR v3 疯批|清空网络|禁用 IPv6|恢复 IPv6|安装或更新 BBR|指定版本安装|检查 BBR)/.test(line)
+      const appendOutput = line => { if (!filterMenuNoise(line)) append(line) }
+      if (input === '1\n1\n') append('[bbr] 已选择 BBR V3 标准版，不会自动启用 FQ。')
+      if (input === '1\n2\n') append('[bbr] 已选择 BBR V3 Max，不会自动启用 FQ。')
+      if (input.startsWith('10\n')) append('[bbr] 已选择 BBR V3 智能优化，测速与 RTT 参数由面板提供。')
       child.stdin.end(input)
-      for (const output of [child.stdout, child.stderr]) createInterface({ input: output }).on('line', append)
+      for (const output of [child.stdout, child.stderr]) createInterface({ input: output }).on('line', appendOutput)
       child.on('error', error => { append(`[bbr] 无法启动安装脚本：${error.message}`); resolve(1) })
       child.on('close', code => resolve(code ?? 1))
     })
