@@ -128,6 +128,9 @@ nav { display: grid; gap: 5px; }
 .traffic-total span:first-child svg { color: var(--blue-light); }
 .traffic-total span:last-child svg { color: var(--teal); }
 .traffic-total.rate span { font-size: 18px; }
+.traffic-balance { gap: 7px; }
+.traffic-balance strong { color: var(--text); font: 700 clamp(26px, 3vw, 38px)/1 var(--mono); letter-spacing: -.05em; }
+.traffic-balance small { color: var(--muted); font: 12px var(--mono); }
 .traffic-caption { display: flex; align-items: center; gap: 8px; margin-top: 13px; color: var(--muted); font-size: 10px; }
 .traffic-caption strong { color: var(--text-secondary); font: 10px var(--mono); font-weight: 400; }
 .traffic-caption i { display: inline-block; width: 1px; height: 12px; background: var(--border-control); }

@@ -9,7 +9,12 @@ import NodeStatsList from '../components/NodeStatsList.vue'
 const router = useRouter()
 const confirm = ref(false), serverConfirm = ref(false), paused = ref(false), frozen = ref<typeof snapshot.value>(), testing = ref(false)
 const data = computed(() => paused.value ? frozen.value : snapshot.value)
-const trafficUsed = computed(() => snapshot.value?.traffic ? Math.min(100, (snapshot.value.traffic.totalRx + snapshot.value.traffic.totalTx) / snapshot.value.traffic.quotaBytes * 100) : 0)
+const trafficTotal = computed(() => snapshot.value?.traffic
+  ? snapshot.value.traffic.totalRx + snapshot.value.traffic.totalTx
+  : 0)
+const trafficUsed = computed(() => snapshot.value?.traffic
+  ? Math.min(100, trafficTotal.value / snapshot.value.traffic.quotaBytes * 100)
+  : 0)
 const enabled = computed(() => snapshot.value?.services.filter(s => !['missing', 'disabled'].includes(s.state)).length || 0)
 const points = (field: 'cpu' | 'memory') => (data.value?.history || []).map((s, i, a) => `${44 + i / Math.max(1, a.length - 1) * 650},${182 - s[field] * 1.5}`).join(' ')
 const icons: Record<string, typeof Server> = { xray: Layers, cloudflare: Globe2, hy2: Activity, subscription: Cable, mtproto: ShieldCheck }
@@ -30,7 +35,7 @@ onMounted(() => { if (!serverLatency.value) testLatency() })
       <div class="metric"><div class="metric-label"><Clock3 :size="17" />服务器运行时间</div><div class="metric-number uptime-number">{{ duration(snapshot.uptime) }}</div><p>自本次系统启动</p></div>
     </section>
     <section class="traffic-grid" aria-label="网络流量与测速">
-      <div class="panel traffic-card traffic-quota-card"><div class="traffic-card-head"><div class="metric-label"><Activity :size="17" />流量统计</div><span class="traffic-source"><span class="status-dot green" />{{ snapshot.demo ? '演示数据' : snapshot.traffic.interface }}</span></div><div class="traffic-total"><span><Download :size="15" />{{ bytes(snapshot.traffic.totalRx) }}</span><span><Upload :size="15" />{{ bytes(snapshot.traffic.totalTx) }}</span></div><div class="traffic-caption">累计下行 <strong>{{ bytes(snapshot.traffic.totalRx) }}</strong><i />累计上行 <strong>{{ bytes(snapshot.traffic.totalTx) }}</strong></div><div class="quota-row"><span>服务器额度 1 TB</span><strong>{{ trafficUsed.toFixed(1) }}% 已使用</strong></div><div class="quota-track"><span :style="{ width: `${trafficUsed}%` }" /></div></div>
+      <div class="panel traffic-card traffic-quota-card"><div class="traffic-card-head"><div class="metric-label"><Activity :size="17" />流量统计</div><span class="traffic-source"><span class="status-dot green" />{{ snapshot.demo ? '演示数据' : snapshot.traffic.interface }}</span></div><div class="traffic-total traffic-balance"><strong>{{ bytes(trafficTotal) }}</strong><small>/ {{ bytes(snapshot.traffic.quotaBytes) }}</small></div><div class="traffic-caption"><span>累计下行 <strong>{{ bytes(snapshot.traffic.totalRx) }}</strong></span><i /><span>累计上行 <strong>{{ bytes(snapshot.traffic.totalTx) }}</strong></span></div><div class="quota-row"><span>服务器额度 {{ bytes(snapshot.traffic.quotaBytes) }}</span><strong>{{ trafficUsed.toFixed(1) }}% 已使用</strong></div><div class="quota-track"><span :style="{ width: String(trafficUsed) + '%' }" /></div></div>
       <div class="panel traffic-card"><div class="traffic-card-head"><div class="metric-label"><Zap :size="17" />实时网速</div><span class="traffic-source">每 3 秒更新</span></div><div class="traffic-total rate"><span><Download :size="15" />{{ bytes(snapshot.traffic.downRate) }}/s</span><span><Upload :size="15" />{{ bytes(snapshot.traffic.upRate) }}/s</span></div><div class="traffic-caption">峰值 ↓ {{ bytes(snapshot.traffic.peakDown) }}/s <i />峰值 ↑ {{ bytes(snapshot.traffic.peakUp) }}/s</div></div>
       <div class="panel speed-card"><div class="traffic-card-head"><div class="metric-label"><Gauge :size="17" />服务器延迟</div><span class="traffic-source">{{ serverLatency ? time(serverLatency.measuredAt) : '尚未检测' }}</span></div><div v-if="serverLatency && serverLatency.average !== null" class="speed-result"><span><strong>{{ serverLatency.average }}</strong><small>ms 平均</small></span><span><strong>{{ serverLatency.min }}</strong><small>ms 最低</small></span><span><strong>{{ serverLatency.max }}</strong><small>ms 最高</small></span></div><div v-else class="speed-empty"><Timer :size="18" /><span>从当前网络访问面板服务器</span></div><button class="button small secondary speed-button" :disabled="testing" @click="testLatency"><RefreshCw :size="14" :class="{ spin: testing }" />{{ testing ? '检测中…' : '检测当前网络' }}</button></div>
     </section>
