@@ -207,9 +207,10 @@ function managedKernelProfile() {
   try {
     const packages = execFileSync('dpkg-query', ['-W', '-f=${binary:Package}\n'], { encoding: 'utf8', timeout: 3000 }).split('\n').filter(Boolean)
     const kernels = packages.map(value => value.split(':')[0]).filter(value => /linux-image-.*-joeyblog-bbrv3(?:-max)?$/.test(value))
-    const active = `linux-image-${os.release()}-joeyblog-bbrv3`
-    const activeMax = `linux-image-${os.release()}-joeyblog-bbrv3-max`
-    return { installed: kernels.length > 0, standardInstalled: kernels.some(value => /-joeyblog-bbrv3$/.test(value)), maxInstalled: kernels.some(value => value.endsWith('-max')), profile: kernels.some(value => value.endsWith('-max')) ? 'max' : kernels.length ? 'standard' : null, active: kernels.includes(active) || kernels.includes(activeMax), activeProfile: kernels.includes(activeMax) ? 'max' : kernels.includes(active) ? 'standard' : null }
+    const runningPackage = `linux-image-${os.release()}`
+    const active = runningPackage.endsWith('-max') ? '' : runningPackage
+    const activeMax = runningPackage.endsWith('-max') ? runningPackage : ''
+    return { installed: kernels.length > 0, standardInstalled: kernels.some(value => /-joeyblog-bbrv3$/.test(value)), maxInstalled: kernels.some(value => value.endsWith('-max')), profile: kernels.some(value => value.endsWith('-max')) ? 'max' : kernels.length ? 'standard' : null, active: Boolean(active && kernels.includes(active)) || Boolean(activeMax && kernels.includes(activeMax)), activeProfile: activeMax && kernels.includes(activeMax) ? 'max' : active && kernels.includes(active) ? 'standard' : null }
   } catch { return { installed: false, standardInstalled: false, maxInstalled: false, profile: null, active: false, activeProfile: null } }
 }
 function optimizationStatus() {
