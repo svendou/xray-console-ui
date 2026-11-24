@@ -36,7 +36,7 @@ export interface ServerLatency {
   samples: number[]; average: number | null; min: number | null; max: number | null; failed: number; measuredAt: string
 }
 export interface KernelInfo {
-  current: string; allowed: string[]; qdisc: string; bbr: boolean; qdiscSupported?: boolean; bbrV3Supported?: boolean; bbrV3Installed?: boolean; bbrV3Profile?: string | null; bbrV3Active?: boolean; bbrV3ActiveProfile?: string | null; smartOptimization?: boolean; distro?: string; source: string
+  current: string; allowed: string[]; qdisc: string; bbr: boolean; qdiscSupported?: boolean; bbrV3Supported?: boolean; bbrV3Installed?: boolean; bbrV3Profile?: string | null; bbrV3Active?: boolean; bbrV3ActiveProfile?: string | null; smartOptimization?: boolean; apacTuning?: boolean; crazyMode?: boolean; ipv6Disabled?: boolean; distro?: string; source: string
 }
 export type CarrierId = 'mobile' | 'unicom' | 'telecom'
 export interface CarrierLatency {
